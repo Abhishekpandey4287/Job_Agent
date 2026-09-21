@@ -1,0 +1,132 @@
+{
+  "candidate_profile": {
+    "professional_years": 2,
+    "internship_years": 1,
+    "summary": "Android Full Stack Developer — Android, Kotlin, Java, Spring Boot, AWS, Docker, Jenkins/CI/CD"
+  },
+  "android_implied": {
+    "View Binding": ["view binding", "viewbinding"],
+    "Data Binding": ["data binding", "databinding"],
+    "Fragments": ["fragments", "fragment"],
+    "Activities": ["activities", "activity lifecycle"],
+    "Android SDK": ["android sdk"],
+    "Material Design": ["material design", "material components"],
+    "RecyclerView": ["recyclerview", "recycler view"],
+    "ViewPager2": ["viewpager2", "viewpager 2"],
+    "SharedPreferences": ["sharedpreferences", "shared preferences"],
+    "ContentProvider": ["contentprovider", "content provider"],
+    "BroadcastReceiver": ["broadcastreceiver", "broadcast receiver"],
+    "Intent": ["intents", "intent filters"],
+    "Gradle": ["gradle", "gradle build"],
+    "JUnit": ["junit"],
+    "Espresso": ["espresso"],
+    "Mockito": ["mockito"],
+    "ProGuard": ["proguard", "r8"],
+    "XML Layouts": ["xml layouts", "layout xml"]
+  },
+  "backend_implied": {
+    "Maven": ["maven"],
+    "Microservices": ["microservices", "micro-services"],
+    "DynamoDB": ["dynamodb", "dynamo db"],
+    "Security Groups": ["security groups", "security group"],
+    "Load Balancers": ["load balancer", "load balancers", "alb", "elb"],
+    "EC2": ["ec2"],
+    "RDS": ["rds"],
+    "CloudFormation": ["cloudformation", "cloud formation"],
+    "IAM": ["iam"],
+    "CloudWatch": ["cloudwatch", "cloud watch"],
+    "S3": ["s3", "amazon s3"],
+    "API Gateway": ["api gateway"],
+    "Postman": ["postman"],
+    "Swagger": ["swagger", "openapi"],
+    "OAuth": ["oauth", "oauth2"],
+    "Jenkins": ["jenkins"],
+    "Docker": ["docker", "containerization", "containers"],
+    "CI/CD": ["ci/cd", "continuous integration", "continuous deployment"]
+  },
+  "blocked_inference": {
+    "Flutter": ["flutter", "dart flutter"],
+    "React Native": ["react native", "react-native"],
+    "iOS Swift": ["swiftui", "ios development", "ios engineer", "ios developer"],
+    "Objective-C": ["objective-c", "objective c"],
+    "Kubernetes": ["kubernetes", "k8s"],
+    "Terraform": ["terraform"],
+    "Golang": ["golang"],
+    "Rust": ["rust"],
+    "C++": ["c++", "cpp"],
+    ".NET": [".net", "csharp", "c#"],
+    "Angular": ["angular"],
+    "Vue.js": ["vue.js", "vuejs", " vue "],
+    "Ruby on Rails": ["ruby on rails", "rails developer"]
+  },
+  "adjacent": {
+    "GraphQL": {
+      "aliases": ["graphql"],
+      "requires_any": ["rest api", "rest apis", "spring boot", "retrofit"],
+      "tracks": ["ANDROID", "BACKEND", "HYBRID"]
+    },
+    "Kafka": {
+      "aliases": ["kafka", "apache kafka"],
+      "requires_any": ["redis", "event-driven", "microservices", "spring boot"],
+      "tracks": ["BACKEND", "HYBRID"]
+    },
+    "RabbitMQ": {
+      "aliases": ["rabbitmq", "rabbit mq"],
+      "requires_any": ["redis", "event-driven", "microservices", "spring boot"],
+      "tracks": ["BACKEND", "HYBRID"]
+    },
+    "MongoDB": {
+      "aliases": ["mongodb", "mongo db"],
+      "requires_any": ["postgresql", "mysql", "jpa", "hibernate"],
+      "tracks": ["BACKEND", "HYBRID"]
+    },
+    "Firebase": {
+      "aliases": ["firebase", "fcm", "firestore"],
+      "requires_any": ["android sdk", "kotlin", "firebase crashlytics"],
+      "tracks": ["ANDROID", "HYBRID"]
+    }
+  },
+  "skill_categories": {
+    "View Binding": "Android",
+    "Data Binding": "Android",
+    "Fragments": "Android",
+    "Activities": "Android",
+    "Android SDK": "Android",
+    "Material Design": "Android",
+    "RecyclerView": "Android",
+    "ViewPager2": "Android",
+    "SharedPreferences": "Android",
+    "ContentProvider": "Android",
+    "BroadcastReceiver": "Android",
+    "Intent": "Android",
+    "Gradle": "Android",
+    "JUnit": "Android",
+    "Espresso": "Android",
+    "Mockito": "Android",
+    "ProGuard": "Android",
+    "XML Layouts": "Android",
+    "Maven": "Build & Tools",
+    "Microservices": "Architecture",
+    "DynamoDB": "Cloud & DevOps",
+    "Security Groups": "Cloud & DevOps",
+    "Load Balancers": "Cloud & DevOps",
+    "EC2": "Cloud & DevOps",
+    "RDS": "Cloud & DevOps",
+    "CloudFormation": "Cloud & DevOps",
+    "IAM": "Cloud & DevOps",
+    "CloudWatch": "Cloud & DevOps",
+    "S3": "Cloud & DevOps",
+    "API Gateway": "Cloud & DevOps",
+    "Postman": "Build & Tools",
+    "Swagger": "Integration",
+    "OAuth": "Integration",
+    "Jenkins": "Cloud & DevOps",
+    "Docker": "Cloud & DevOps",
+    "CI/CD": "Cloud & DevOps",
+    "GraphQL": "Integration",
+    "Kafka": "Integration",
+    "RabbitMQ": "Integration",
+    "MongoDB": "Data",
+    "Firebase": "Android"
+  }
+}

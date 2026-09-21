@@ -1,0 +1,243 @@
+\documentclass[10pt, letterpaper]{article}
+
+% ── Packages ──────────────────────────────────────────────────────────────────
+\usepackage[top=0.22in, bottom=0.15in, left=0.50in, right=0.50in]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage[scaled=0.95]{helvet}
+\renewcommand{\familydefault}{\sfdefault}
+\usepackage{microtype}
+\usepackage[usenames, dvipsnames]{xcolor}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{tabularx}
+\usepackage{array}
+\usepackage[hidelinks]{hyperref}
+% glyphtounicode is pdfTeX-only — Tectonic uses XeTeX
+\usepackage{iftex}
+\ifPDFTeX
+  \input{glyphtounicode}
+  \pdfgentounicode=1
+\fi
+
+% ── Colours ───────────────────────────────────────────────────────────────────
+\definecolor{NavyTx}{RGB}{13,  31,  60}
+\definecolor{BlueAc}{RGB}{28,  95, 175}
+\definecolor{BodyTx}{RGB}{50,  50,  50}
+\definecolor{MetaTx}{RGB}{105,105,105}
+
+% ── Page ──────────────────────────────────────────────────────────────────────
+\pagestyle{empty}
+\raggedbottom
+\raggedright
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{0pt}
+
+\hypersetup{colorlinks=true, urlcolor=BlueAc, linkcolor=BlueAc}
+
+% ── Section heading ───────────────────────────────────────────────────────────
+\titleformat{\section}
+  {\color{NavyTx}\bfseries\small}
+  {}{0em}{\MakeUppercase}
+  [\vspace{1pt}{\color{BlueAc}\hrule height 0.8pt}\vspace{2pt}]
+\titlespacing{\section}{0pt}{2pt}{0pt}
+
+% ── Role line macro ───────────────────────────────────────────────────────────
+\newcommand{\role}[4]{%
+  \noindent
+  \begin{tabularx}{\linewidth}{@{}X r@{}}
+    \ifx\relax#2\relax
+      {\small\bfseries\color{NavyTx}#1}
+    \else
+      {\small\bfseries\href{#2}{\color{BlueAc}#1}}%
+    \fi
+    {\footnotesize\color{MetaTx}\ $\cdot$\ \textit{#3}}
+    &
+    {\footnotesize\bfseries\color{NavyTx}#4}
+  \end{tabularx}\vspace{0pt}%
+}
+
+% ── Bullet list ───────────────────────────────────────────────────────────────
+\newenvironment{blist}{%
+  \begin{itemize}[
+    leftmargin=1.1em,
+    itemsep=0pt,
+    topsep=0pt,
+    parsep=0pt,
+    label={\textcolor{BlueAc}{\small$\bullet$}}
+  ]\small\color{BodyTx}
+}{%
+  \end{itemize}\vspace{0pt}
+}
+
+% ── Skill row ─────────────────────────────────────────────────────────────────
+\newcommand{\sk}[2]{%
+  \noindent
+  \begin{tabularx}{\linewidth}{@{}>{\bfseries\color{NavyTx}}p{1.45in} X@{}}
+    {\small #1} & {\small\color{BodyTx}#2}
+  \end{tabularx}\\[-4pt]
+}
+
+\newcommand{\bn}[1]{{\bfseries\color{NavyTx}#1}}
+
+% ─────────────────────────────────────────────────────────────────────────────
+\begin{document}
+
+% ── HEADER ───────────────────────────────────────────────────────────────────
+\begin{center}
+  {\fontsize{20}{24}\selectfont\bfseries\color{NavyTx} ABHISHEK PANDEY}\\[2pt]
+  {\small\color{BodyTx}
+    Android Engineer $\cdot$ Kotlin $\cdot$ Jetpack Compose $\cdot$ Spring Boot $\cdot$ AWS}\\[3pt]
+  {\footnotesize\color{BodyTx}
+    \href{tel:+917045933043}{+91\,70459\,33043}
+    \enspace|\enspace
+    \href{mailto:abhishekvpandeyxyz@gmail.com}{abhishekvpandeyxyz@gmail.com}
+    \enspace|\enspace
+    \href{https://www.linkedin.com/in/abhishek-pandey-0a500921b}{linkedin.com/in/abhishek-pandey-0a500921b}
+    \enspace|\enspace
+    \href{https://github.com/Abhishekpandey4287}{github.com/Abhishekpandey4287}
+    \enspace|\enspace
+    \href{https://abhishek-pandey-dev.vercel.app/}{abhishek-pandey-dev.vercel.app}
+    \enspace|\enspace
+    Mumbai, India}
+\end{center}
+
+\vspace{-6pt}
+
+% ── PROFILE ──────────────────────────────────────────────────────────────────
+\section{Profile}
+
+{\small\color{BodyTx}
+Android Engineer at \bn{Percipere (UK)} with end-to-end ownership across the mobile-to-cloud stack, from
+Android client architecture through Spring Boot backends to AWS infrastructure. Led \bn{4+ production go-lives}
+and \bn{5 product tiles (17 screens, 37+ REST APIs)} on a SAP-integrated enterprise warehouse platform
+deployed across multiple countries. Shipped a \bn{fintech Android app} that parses Indian bank statements
+using Gemini Nano on-device AI and ML Kit OCR with zero cloud dependency, and built a \bn{full-stack social
+media platform} featuring WebRTC calls, Redis Streams, JWT auth, and CI/CD. Fluent in AI-assisted development
+(Cursor, Copilot) and deeply curious about the full stack.
+}
+
+% ── EXPERIENCE ───────────────────────────────────────────────────────────────
+\section{Experience}
+
+\role{Percipere}{https://percipere.co/}%
+     {Android \& Full-Stack Engineer $\cdot$ Kotlin, Jetpack Compose, Spring Boot, Redis, AWS}%
+     {Oct 2024 – Present}
+
+\begin{blist}
+  \item Delivered \bn{4+ production go-lives} end-to-end across UK and international clients
+        architecting Android + Spring Boot solutions on \bn{AWS infrastructure} and leading UAT sign-off,
+        with \bn{zero critical post-live defects.}
+
+  \item Led development of \bn{5 product tiles in PerciScan}, an enterprise warehouse platform
+        (20–30 concurrent users, Android 8+), spanning \bn{17 screens, 9 filter screens, and 37+ REST APIs};
+        designed an action-routing layer that keeps the Android client fully decoupled from the backend,
+        enabling independent release cadences.
+
+  \item Eliminated hardware lock-in by replacing the \bn{Zebra scanner SDK} with \bn{Google ML Kit}
+        behind an abstraction interface, making the product hardware-agnostic and unblocking
+        Play Store distribution.
+
+  \item Built a \bn{DB-driven Dynamic Tile System} enabling new tiles to be added via a single
+        database entry with zero code changes, allowing instant rollout across all client
+        environments without re-deployment.
+
+  \item Diagnosed a \bn{race condition} in Apache Camel under peak load and resolved the underlying
+        shared mutable state issue. \bn{Zero production incidents since.}
+
+  \item Implemented \bn{CloudFormation IaC}, cutting provisioning time from \bn{4–6 hrs to 15–20 min},
+        and built CI/CD pipelines on AWS and Azure DevOps that delivered \bn{40\% faster deploys}
+        with zero downtime.
+\end{blist}
+
+\role{SIBIC}{https://drive.google.com/file/d/13GS9jE5UjQK-xe3YBvNKnforf05kLEl7/view}%
+     {Backend Intern $\cdot$ Java, Spring Boot, MySQL, REST APIs}%
+     {Feb – Aug 2024}
+
+\begin{blist}
+  \item Built REST APIs for a co-working space management platform, implementing
+        \bn{role-based access control} across 3 roles and reducing server response time by
+        \bn{40\,ms} through query optimisation.
+\end{blist}
+
+\role{Google}%
+     {https://smartinternz.com/internships/google_stu_certificates/e8cb5f581442030021d62fd780fa674d}%
+     {Android Development Intern $\cdot$ Android SDK, Google Maps API, Geolocation}%
+     {Aug – Sep 2022}
+
+\begin{blist}
+  \item Built a Nearby Business app using Google Geolocation APIs and a map UI; applying
+        Material Design guidelines drove a \bn{30\% increase in user engagement.}
+\end{blist}
+
+% ── PROJECTS ─────────────────────────────────────────────────────────────────
+\section{Projects}
+
+\role{Fintech Bank Statement Parser — Android}%
+     {https://github.com/Abhishekpandey4287/Convert-To-Excel}%
+     {Kotlin, MVVM, ML Kit, Gemini Nano (AICore), Apache POI}%
+     {2026}
+
+\begin{blist}
+  \item Built a \bn{two-tier on-device AI pipeline}: PDF $\to$ PdfRenderer $\to$ ML Kit OCR $\to$
+        OnDeviceParser. On Pixel 6+/S23+, \bn{Gemini Nano (AICore)} returns structured JSON with no
+        internet access and no API key; on all other devices (API 21+), a SmartLabelParser detects
+        column headers by X-coordinate at runtime. Successfully parsed
+        \bn{101 transactions across 5 pages} of a Bank of India statement with zero cloud dependency.
+\end{blist}
+
+\role{Full-Stack Social Media Platform}%
+     {https://github.com/Abhishekpandey4287}%
+     {Kotlin, Spring Boot, Redis, WebRTC, ExoPlayer, CameraX}%
+     {2025 – Present}
+
+\begin{blist}
+  \item Architected the platform as Android (Clean Architecture, MVVM, Jetpack Compose) + Spring Boot
+        + Redis, using \bn{Kotlin across both layers} and deploying on Render.
+
+  \item Implemented \bn{WebRTC} audio/video calls with a full state machine
+        (ringing $\to$ ongoing $\to$ completed) and a \bn{Redis Streams}-based system that
+        batch-flushes every 5\,min with an optimistic UI cache, supporting
+        \bn{lakhs of concurrent interactions}; secured with JWT auth, per-IP rate limits, and a
+        circuit breaker.
+
+  \item Built video playback and capture with \bn{ExoPlayer} adaptive bitrate streaming and
+        \bn{CameraX} (\bn{75\% fewer} device issues vs.\ Camera2), rendering feeds via ViewPager2
+        at \bn{60\,fps.}
+\end{blist}
+
+% ── TECHNICAL SKILLS ─────────────────────────────────────────────────────────
+\section{Technical Skills}
+
+\sk{Languages:}{Kotlin, Java, SQL, XML}
+\sk{Android:}{Android SDK, Jetpack Compose, ViewModel, LiveData, Navigation, WorkManager, Retrofit, Coroutines, ExoPlayer, CameraX, WebRTC, Firebase Crashlytics, ML Kit, Gemini Nano (AICore)}
+\sk{Backend:}{Spring Boot, REST APIs, JWT, Redis (Streams, Pub/Sub, Caching), Apache Camel, Spring Security, JPA/Hibernate, PostgreSQL, MySQL}
+\sk{Cloud \& DevOps:}{AWS (EC2, RDS, Route\,53, S3, CloudFormation, Load Balancers, IAM, CloudWatch), Azure DevOps, GitHub Actions CI/CD, Docker}
+\sk{Architecture:}{MVVM, Clean Architecture, Repository Pattern, OOP, SOLID, Event-Driven Architecture}
+\sk{AI-Assisted Dev:}{Cursor \& GitHub Copilot daily; on-device AI (Gemini Nano/AICore, ML Kit); critical review of AI-generated code}
+
+% ── CERTIFICATIONS & EDUCATION ───────────────────────────────────────────────
+\section{Certifications \& Education}
+
+\vspace{1pt}
+\begin{tabularx}{\linewidth}{@{} X X @{}}
+  {\small\href{https://www.linkedin.com/learning/certificates/5d3edad0b7d5c9ec86f03238ede515584ae3a6b99755215a9de1b28096f2b567}{\color{BlueAc}Android Compose with Kotlin — LinkedIn}} &
+  {\small\href{https://olympus.mygreatlearning.com/courses/21871/certificate}{\color{BlueAc}Mobile Development — Great Learning}} \\[0pt]
+  {\small\href{https://www.linkedin.com/learning/certificates/735e2091359c9c37bf79893b7ad5bb40bb15570cccb59758c16ecca7f3089e01}{\color{BlueAc}Docker for Developers — LinkedIn}} &
+  {\small\href{https://olympus.mygreatlearning.com/courses/33960/certificate}{\color{BlueAc}Data Structures in Java — Great Learning}} \\[0pt]
+  {\small\href{https://olympus.mygreatlearning.com/courses/53846/certificate}{\color{BlueAc}Git and GitHub — Great Learning}} &
+  {\small\href{https://olympus.mygreatlearning.com/courses/12385/certificate}{\color{BlueAc}Java Programming — Great Learning}}
+\end{tabularx}
+
+\vspace{0pt}
+\noindent
+\begin{tabularx}{\linewidth}{@{} X r @{}}
+  {\small\bn{Dr.\,JJ Magdum College of Engineering}}
+  {\small\color{MetaTx}$|$}
+  {\small\color{BodyTx} B.Tech, Computer Science \& Engineering}
+  {\small\color{MetaTx}$|$ CGPA:}
+  {\small\bn{8.54\,/\,10}}
+  &
+  {\small\color{MetaTx} 2020 – 2024}
+\end{tabularx}
+
+\end{document}

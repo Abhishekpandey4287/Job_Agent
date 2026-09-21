@@ -1,0 +1,215 @@
+{
+  "contact": {
+    "name": "Abhishek Pandey",
+    "email": "abhishekvpandeyxyz@gmail.com",
+    "phone": "+917045933043",
+    "linkedin": "linkedin.com/in/abhishek-pandey-0a500921b",
+    "github": "github.com/Abhishekpandey4287",
+    "portfolio": "abhishek-pandey-dev.vercel.app",
+    "location": "Mumbai, India"
+  },
+  "profile_summary": "Android Engineer at Percipere (UK) with end-to-end ownership across the mobile-to-cloud stack, from Android client architecture through Spring Boot backends to AWS infrastructure. Led 4+ production go-lives and 5 product tiles (17 screens, 37+ REST APIs) on a SAP-integrated enterprise warehouse platform deployed across multiple countries. Shipped a fintech Android app that parses Indian bank statements using Gemini Nano on-device AI and ML Kit OCR with zero cloud dependency, and built a full-stack social media platform featuring WebRTC calls, Redis Streams, JWT auth, and CI/CD. Fluent in AI-assisted development (Cursor, Copilot) and deeply curious about the full stack.",
+  "total_experience_years": 2.0,
+  "experience": [
+    {
+      "company": "Percipere",
+      "title": "Android & Full-Stack Engineer",
+      "location": "",
+      "start_date": "Oct 2024",
+      "end_date": "Present",
+      "is_current": true,
+      "technologies": [
+        "Kotlin",
+        "Jetpack Compose",
+        "Spring Boot",
+        "Redis",
+        "AWS"
+      ],
+      "bullets": [
+        "Delivered 4+ production go-lives end-to-end across UK and international clients architecting Android + Spring Boot solutions on AWS infrastructure and leading UAT sign-off, with zero critical post-live defects.",
+        "Led development of 5 product tiles in PerciScan, an enterprise warehouse platform (20-30 concurrent users, Android 8+), spanning 17 screens, 9 filter screens, and 37+ REST APIs; designed an action-routing layer that keeps the Android client fully decoupled from the backend, enabling independent release cadences.",
+        "Eliminated hardware lock-in by replacing the Zebra scanner SDK with Google ML Kit behind an abstraction interface, making the product hardware-agnostic and unblocking Play Store distribution.",
+        "Built a DB-driven Dynamic Tile System enabling new tiles to be added via a single database entry with zero code changes, allowing instant rollout across all client environments without re-deployment.",
+        "Diagnosed a race condition in Apache Camel under peak load and resolved the underlying shared mutable state issue. Zero production incidents since.",
+        "Implemented CloudFormation IaC, cutting provisioning time from 4-6 hrs to 15-20 min, and built CI/CD pipelines on AWS and Azure DevOps that delivered 40 with zero downtime."
+      ]
+    },
+    {
+      "company": "SIBIC",
+      "title": "Backend Intern",
+      "location": "",
+      "start_date": "Feb 2024",
+      "end_date": "Aug 2024",
+      "is_current": false,
+      "technologies": [
+        "Java",
+        "Spring Boot",
+        "MySQL",
+        "REST APIs"
+      ],
+      "bullets": [
+        "Built REST APIs for a co-working space management platform, implementing role-based access control across 3 roles and reducing server response time by 40 ms through query optimisation."
+      ]
+    },
+    {
+      "company": "Google",
+      "title": "Android Development Intern",
+      "location": "",
+      "start_date": "Aug 2022",
+      "end_date": "Sep 2022",
+      "is_current": false,
+      "technologies": [
+        "Android SDK",
+        "Google Maps API",
+        "Geolocation"
+      ],
+      "bullets": [
+        "Built a Nearby Business app using Google Geolocation APIs and a map UI; applying Material Design guidelines drove a 30"
+      ]
+    }
+  ],
+  "projects": [
+    {
+      "name": "Fintech Bank Statement Parser - Android",
+      "description": "Fintech Bank Statement Parser - Android",
+      "technologies": [
+        "Kotlin",
+        "MVVM",
+        "ML Kit",
+        "Gemini Nano (AICore)",
+        "Apache POI"
+      ],
+      "bullets": [
+        "Built a two-tier on-device AI pipeline: PDF → PdfRenderer → ML Kit OCR → OnDeviceParser. On Pixel 6+/S23+, Gemini Nano (AICore) returns structured JSON with no internet access and no API key; on all other devices (API 21+), a SmartLabelParser detects column headers by X-coordinate at runtime. Successfully parsed 101 transactions across 5 pages of a Bank of India statement with zero cloud dependency."
+      ],
+      "year": "2026"
+    },
+    {
+      "name": "Full-Stack Social Media Platform",
+      "description": "Full-Stack Social Media Platform",
+      "technologies": [
+        "Kotlin",
+        "Spring Boot",
+        "Redis",
+        "WebRTC",
+        "ExoPlayer",
+        "CameraX"
+      ],
+      "bullets": [
+        "Architected the platform as Android (Clean Architecture, MVVM, Jetpack Compose) + Spring Boot + Redis, using Kotlin across both layers and deploying on Render.",
+        "Implemented WebRTC audio/video calls with a full state machine (ringing → ongoing → completed) and a Redis Streams-based system that batch-flushes every 5 min with an optimistic UI cache, supporting lakhs of concurrent interactions; secured with JWT auth, per-IP rate limits, and a circuit breaker.",
+        "Built video playback and capture with ExoPlayer adaptive bitrate streaming and CameraX (75 at 60 fps."
+      ],
+      "year": "2025 - Present"
+    }
+  ],
+  "technical_skills": {
+    "Languages": [
+      "Kotlin",
+      "Java",
+      "SQL",
+      "XML"
+    ],
+    "Android": [
+      "Android SDK",
+      "Jetpack Compose",
+      "ViewModel",
+      "LiveData",
+      "Navigation",
+      "WorkManager",
+      "Retrofit",
+      "Coroutines",
+      "ExoPlayer",
+      "CameraX",
+      "WebRTC",
+      "Firebase Crashlytics",
+      "ML Kit",
+      "Gemini Nano (AICore)"
+    ],
+    "Backend": [
+      "Spring Boot",
+      "REST APIs",
+      "JWT",
+      "Redis (Streams",
+      "Pub/Sub",
+      "Caching)",
+      "Apache Camel",
+      "Spring Security",
+      "JPA/Hibernate",
+      "PostgreSQL",
+      "MySQL"
+    ],
+    "Cloud & DevOps": [
+      "AWS (EC2",
+      "RDS",
+      "Route\\",
+      "53",
+      "S3",
+      "CloudFormation",
+      "Load Balancers",
+      "IAM",
+      "CloudWatch)",
+      "Azure DevOps",
+      "GitHub Actions CI/CD",
+      "Docker"
+    ],
+    "Architecture": [
+      "MVVM",
+      "Clean Architecture",
+      "Repository Pattern",
+      "OOP",
+      "SOLID",
+      "Event-Driven Architecture"
+    ],
+    "AI-Assisted Dev": [
+      "Cursor & GitHub Copilot daily",
+      "on-device AI (Gemini Nano/AICore",
+      "ML Kit)",
+      "critical review of AI-generated code"
+    ]
+  },
+  "education": [
+    {
+      "institution": "Dr. JJ Magdum College of Engineering",
+      "degree": "B.Tech",
+      "field": "Computer Science",
+      "start_year": "2020",
+      "end_year": "2024",
+      "gpa": "8.54  / 10"
+    }
+  ],
+  "certifications": [
+    {
+      "name": "Android Compose with Kotlin",
+      "issuer": "LinkedIn",
+      "year": ""
+    },
+    {
+      "name": "Mobile Development",
+      "issuer": "Great Learning",
+      "year": ""
+    },
+    {
+      "name": "Docker for Developers",
+      "issuer": "LinkedIn",
+      "year": ""
+    },
+    {
+      "name": "Data Structures in Java",
+      "issuer": "Great Learning",
+      "year": ""
+    },
+    {
+      "name": "Git and GitHub",
+      "issuer": "Great Learning",
+      "year": ""
+    },
+    {
+      "name": "Java Programming",
+      "issuer": "Great Learning",
+      "year": ""
+    }
+  ],
+  "seniority_level": "Mid-level",
+  "raw_text": ""
+}

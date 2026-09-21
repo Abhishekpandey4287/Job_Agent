@@ -1,0 +1,227 @@
+\documentclass[10pt, letterpaper]{article}
+
+% ── Packages ──────────────────────────────────────────────────────────────────
+\usepackage[top=0.24in, bottom=0.18in, left=0.50in, right=0.50in]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage[scaled=0.95]{helvet}
+\renewcommand{\familydefault}{\sfdefault}
+\usepackage{microtype}
+\usepackage[usenames, dvipsnames]{xcolor}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{tabularx}
+\usepackage{array}
+\usepackage[hidelinks]{hyperref}
+% glyphtounicode is pdfTeX-only — Tectonic uses XeTeX
+\usepackage{iftex}
+\ifPDFTeX
+  \input{glyphtounicode}
+  \pdfgentounicode=1
+\fi
+
+% ── Colours ───────────────────────────────────────────────────────────────────
+\definecolor{NavyTx}{RGB}{13,  31,  60}
+\definecolor{BlueAc}{RGB}{28,  95, 175}
+\definecolor{BodyTx}{RGB}{50,  50,  50}
+\definecolor{MetaTx}{RGB}{105,105,105}
+
+% ── Page ──────────────────────────────────────────────────────────────────────
+\pagestyle{empty}
+\raggedbottom
+\raggedright
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{0pt}
+\setlength{\tabcolsep}{0pt}
+
+\hypersetup{colorlinks=true, urlcolor=BlueAc, linkcolor=BlueAc}
+
+% ── Section heading ───────────────────────────────────────────────────────────
+\titleformat{\section}
+  {\color{NavyTx}\bfseries\small}
+  {}{0em}{\MakeUppercase}
+  [\vspace{1pt}{\color{BlueAc}\hrule height 0.8pt}\vspace{2pt}]
+\titlespacing{\section}{0pt}{4pt}{0pt}
+
+% ── Role line macro ───────────────────────────────────────────────────────────
+\newcommand{\role}[4]{%
+  \noindent
+  \begin{tabularx}{\linewidth}{@{}X r@{}}
+    \ifx\relax#2\relax
+      {\small\bfseries\color{NavyTx}#1}
+    \else
+      {\small\bfseries\href{#2}{\color{BlueAc}#1}}%
+    \fi
+    {\footnotesize\color{MetaTx}\ $\cdot$\ \textit{#3}}
+    &
+    {\footnotesize\bfseries\color{NavyTx}#4}
+  \end{tabularx}\vspace{2pt}%
+}
+
+% ── Bullet list ───────────────────────────────────────────────────────────────
+\newenvironment{blist}{%
+  \begin{itemize}[
+    leftmargin=1.1em,
+    itemsep=0pt,
+    topsep=0pt,
+    parsep=0pt,
+    label={\textcolor{BlueAc}{\small$\bullet$}}
+  ]\small\color{BodyTx}
+}{%
+  \end{itemize}\vspace{2pt}
+}
+
+% ── Skill row ─────────────────────────────────────────────────────────────────
+\newcommand{\sk}[2]{%
+  \noindent
+  \begin{tabularx}{\linewidth}{@{}>{\bfseries\color{NavyTx}}p{1.45in} X@{}}
+    {\small #1} & {\small\color{BodyTx}#2}
+  \end{tabularx}\\[-4pt]
+}
+
+\newcommand{\bn}[1]{{\bfseries\color{NavyTx}#1}}
+
+% ─────────────────────────────────────────────────────────────────────────────
+\begin{document}
+
+% ── HEADER ───────────────────────────────────────────────────────────────────
+\begin{center}
+  {\fontsize{20}{24}\selectfont\bfseries\color{NavyTx} ABHISHEK PANDEY}\\[2pt]
+  {\small\color{BodyTx}
+    Java Developer $\cdot$ Backend Engineer $\cdot$ Spring Boot $\cdot$ REST APIs $\cdot$ AWS}\\[3pt]
+  {\footnotesize\color{BodyTx}
+    \href{tel:+917045933043}{+91\,70459\,33043}
+    \enspace|\enspace
+    \href{mailto:abhishekvpandeyxyz@gmail.com}{abhishekvpandeyxyz@gmail.com}
+    \enspace|\enspace
+    \href{https://www.linkedin.com/in/abhishek-pandey-0a500921b}{linkedin.com/in/abhishek-pandey-0a500921b}
+    \enspace|\enspace
+    \href{https://github.com/Abhishekpandey4287}{github.com/Abhishekpandey4287}
+    \enspace|\enspace
+    \href{https://abhishek-pandey-dev.vercel.app/}{abhishek-pandey-dev.vercel.app}
+    \enspace|\enspace
+    Mumbai, India}
+\end{center}
+
+\vspace{-6pt}
+
+% ── PROFILE ──────────────────────────────────────────────────────────────────
+\section{Profile}
+
+{\small\color{BodyTx}
+Java Developer with \bn{2 years of experience} building web-based, enterprise-grade applications on
+\bn{Java 17, Spring Boot, and Spring Security}. At \bn{Percipere (UK)}, designed and implemented a
+\bn{REST\,$\leftrightarrow$\,SOAP integration layer using Apache Camel} to bridge legacy SOAP services
+with modern REST clients inside a SAP-integrated enterprise platform deployed across multiple countries,
+alongside \bn{37+ REST APIs} and \bn{4+ production go-lives} with zero critical post-live defects.
+Comfortable across the full development life cycle design documentation, coding, unit/integration testing,
+debugging, and deployment using \bn{Maven}-based builds with \bn{AWS} and \bn{CI/CD}. Strong grasp of
+JVM internals (JIT, GC), OOP/SOLID, and microservice design.
+}
+
+% ── EXPERIENCE ───────────────────────────────────────────────────────────────
+\section{Experience}
+
+\role{Percipere}{https://percipere.co/}%
+     {Java Developer $\cdot$ Java 17, Spring Boot, Spring Security, Apache Camel, Maven, AWS}%
+     {Oct 2024 – Present}
+
+\begin{blist}
+  \item Designed and built a \bn{REST-to-SOAP and SOAP-to-REST integration layer using Apache Camel},
+        enabling a SAP-integrated enterprise platform to expose modern REST endpoints on top of legacy
+        SOAP services deployed across multiple client environments internationally.
+
+  \item Developed \bn{37+ REST APIs} across \bn{5 backend modules} on \bn{Spring Boot}, securing endpoints
+        with \bn{Spring Security} (role/action-based access control) and keeping client and server fully
+        decoupled for independent release cadences.
+
+  \item Delivered \bn{4+ production go-lives} end-to-end covering design, coding, unit/integration testing,
+        debugging, and \bn{UAT sign-off}, with \bn{zero critical post-live defects.}
+
+  \item Built a \bn{DB-driven dynamic configuration system} that rolls out new business rules and routes
+        via a single database entry, with zero code changes and no re-deployment across environments.
+
+  \item Diagnosed and resolved a \bn{race condition} in an \bn{Apache Camel} route under peak load by
+        fixing the underlying shared mutable state. \bn{Zero production incidents since.}
+
+  \item Built \bn{Maven}-based CI/CD pipelines (\bn{GitHub Actions / Azure DevOps}) and \bn{CloudFormation}
+        infrastructure-as-code, cutting environment provisioning from \bn{4–6 hrs to 15–20 min} and
+        deployments \bn{40\% faster} with zero downtime.
+\end{blist}
+
+\role{SIBIC}{https://drive.google.com/file/d/13GS9jE5UjQK-xe3YBvNKnforf05kLEl7/view}%
+     {Backend Intern $\cdot$ Java, Spring Boot, MySQL, REST APIs}%
+     {Feb – Aug 2024}
+
+\begin{blist}
+  \item Built \bn{REST APIs} in \bn{Spring Boot} for a co-working space management platform, implementing
+        \bn{role-based access control} across 3 roles and reducing server response time by \bn{40\,ms}
+        through query optimisation.
+\end{blist}
+
+\role{Google}%
+     {https://smartinternz.com/internships/google_stu_certificates/e8cb5f581442030021d62fd780fa674d}%
+     {Software Development Intern $\cdot$ Java, Android SDK, Google Maps API}%
+     {Aug – Sep 2022}
+
+\begin{blist}
+  \item Built a location-based service application consuming \bn{REST APIs} (Google Geolocation);
+        UI/UX improvements drove a \bn{30\% increase} in user engagement.
+\end{blist}
+
+% ── PROJECTS ─────────────────────────────────────────────────────────────────
+\section{Projects}
+
+\role{Full-Stack Social Platform Backend}%
+     {https://github.com/Abhishekpandey4287}%
+     {Java, Spring Boot, Spring Security, Redis, JWT, Maven}%
+     {2025 – Present}
+
+\begin{blist}
+  \item Built a \bn{Spring Boot} backend with \bn{JWT authentication}, per-IP rate limiting, and a
+        \bn{circuit breaker}, deployed via \bn{Maven}-based builds on Render.
+
+  \item Implemented a \bn{Redis Streams}-based messaging pipeline that batch-flushes every 5 minutes with
+        an optimistic-cache layer, sized to handle \bn{lakhs of concurrent interactions.}
+
+  \item Exposed \bn{REST APIs} consumed by an Android client, following \bn{Clean Architecture} on the
+        backend for testability and independent deployability.
+\end{blist}
+
+% ── TECHNICAL SKILLS ─────────────────────────────────────────────────────────
+\section{Technical Skills}
+
+\sk{Languages:}{Java 17, SQL, XML, Kotlin}
+\sk{Core Java:}{OOP, Collections, Streams, Multithreading, Generics, JVM Internals (JIT, GC)}
+\sk{Spring:}{Spring Boot, Spring Security, Spring Cloud, Spring Data JPA, Spring MVC}
+\sk{Integration:}{Apache Camel (REST\,$\leftrightarrow$\,SOAP), REST APIs, SOAP / WSDL, JWT, JMS}
+\sk{Build \& Tools:}{Maven, Git, GitHub Actions, Azure DevOps, Docker}
+\sk{Data:}{PostgreSQL, MySQL, Redis (Streams, Pub/Sub, Caching), JPA/Hibernate}
+\sk{Cloud:}{AWS (EC2, RDS, Route\,53, S3, CloudFormation, Load Balancers, IAM, CloudWatch)}
+\sk{Architecture:}{Microservices, MVVM, Clean Architecture, Repository Pattern, SOLID, Event-Driven Architecture}
+
+% ── CERTIFICATIONS & EDUCATION ───────────────────────────────────────────────
+\section{Certifications \& Education}
+
+\vspace{0pt}
+\begin{tabularx}{\linewidth}{@{} X X @{}}
+  {\small\href{https://olympus.mygreatlearning.com/courses/21871/certificate}{\color{BlueAc}Mobile \& Application Development — Great Learning}} &
+  {\small\href{https://olympus.mygreatlearning.com/courses/33960/certificate}{\color{BlueAc}Data Structures in Java — Great Learning}} \\[0pt]
+  {\small\href{https://www.linkedin.com/learning/certificates/735e2091359c9c37bf79893b7ad5bb40bb15570cccb59758c16ecca7f3089e01}{\color{BlueAc}Docker for Developers — LinkedIn}} &
+  {\small\href{https://olympus.mygreatlearning.com/courses/12385/certificate}{\color{BlueAc}Java Programming — Great Learning}} \\[0pt]
+  {\small\href{https://olympus.mygreatlearning.com/courses/53846/certificate}{\color{BlueAc}Git and GitHub — Great Learning}} &
+  {\small\href{https://www.linkedin.com/learning/certificates/5d3edad0b7d5c9ec86f03238ede515584ae3a6b99755215a9de1b28096f2b567}{\color{BlueAc}Android Compose with Kotlin — LinkedIn}}
+\end{tabularx}
+
+\vspace{0pt}
+\noindent
+\begin{tabularx}{\linewidth}{@{} X r @{}}
+  {\small\bn{Dr.\,JJ Magdum College of Engineering}}
+  {\small\color{MetaTx}$|$}
+  {\small\color{BodyTx} B.Tech, Computer Science \& Engineering}
+  {\small\color{MetaTx}$|$ CGPA:}
+  {\small\bn{8.54\,/\,10}}
+  &
+  {\small\color{MetaTx} 2020 – 2024}
+\end{tabularx}
+
+\end{document}

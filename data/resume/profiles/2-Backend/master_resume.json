@@ -1,0 +1,203 @@
+{
+  "contact": {
+    "name": "Abhishek Pandey",
+    "email": "abhishekvpandeyxyz@gmail.com",
+    "phone": "+917045933043",
+    "linkedin": "linkedin.com/in/abhishek-pandey-0a500921b",
+    "github": "github.com/Abhishekpandey4287",
+    "portfolio": "abhishek-pandey-dev.vercel.app",
+    "location": "Mumbai, India"
+  },
+  "profile_summary": "Java Developer with 2 years of experience building web-based, enterprise-grade applications on Java 17, Spring Boot, and Spring Security. At Percipere (UK), designed and implemented a REST ↔ SOAP integration layer using Apache Camel to bridge legacy SOAP services with modern REST clients inside a SAP-integrated enterprise platform deployed across multiple countries, alongside 37+ REST APIs and 4+ production go-lives with zero critical post-live defects. Comfortable across the full development life cycle design documentation, coding, unit/integration testing, debugging, and deployment using Maven-based builds with AWS and CI/CD. Strong grasp of JVM internals (JIT, GC), OOP/SOLID, and microservice design.",
+  "total_experience_years": 2.0,
+  "experience": [
+    {
+      "company": "Percipere",
+      "title": "Java Developer",
+      "location": "",
+      "start_date": "Oct 2024",
+      "end_date": "Present",
+      "is_current": true,
+      "technologies": [
+        "Java 17",
+        "Spring Boot",
+        "Spring Security",
+        "Apache Camel",
+        "Maven",
+        "AWS"
+      ],
+      "bullets": [
+        "Designed and built a REST-to-SOAP and SOAP-to-REST integration layer using Apache Camel, enabling a SAP-integrated enterprise platform to expose modern REST endpoints on top of legacy SOAP services deployed across multiple client environments internationally.",
+        "Developed 37+ REST APIs across 5 backend modules on Spring Boot, securing endpoints with Spring Security (role/action-based access control) and keeping client and server fully decoupled for independent release cadences.",
+        "Delivered 4+ production go-lives end-to-end covering design, coding, unit/integration testing, debugging, and UAT sign-off, with zero critical post-live defects.",
+        "Built a DB-driven dynamic configuration system that rolls out new business rules and routes via a single database entry, with zero code changes and no re-deployment across environments.",
+        "Diagnosed and resolved a race condition in an Apache Camel route under peak load by fixing the underlying shared mutable state. Zero production incidents since.",
+        "Built Maven-based CI/CD pipelines (GitHub Actions / Azure DevOps) and CloudFormation infrastructure-as-code, cutting environment provisioning from 4-6 hrs to 15-20 min and deployments 40"
+      ]
+    },
+    {
+      "company": "SIBIC",
+      "title": "Backend Intern",
+      "location": "",
+      "start_date": "Feb 2024",
+      "end_date": "Aug 2024",
+      "is_current": false,
+      "technologies": [
+        "Java",
+        "Spring Boot",
+        "MySQL",
+        "REST APIs"
+      ],
+      "bullets": [
+        "Built REST APIs in Spring Boot for a co-working space management platform, implementing role-based access control across 3 roles and reducing server response time by 40 ms through query optimisation."
+      ]
+    },
+    {
+      "company": "Google",
+      "title": "Software Development Intern",
+      "location": "",
+      "start_date": "Aug 2022",
+      "end_date": "Sep 2022",
+      "is_current": false,
+      "technologies": [
+        "Java",
+        "Android SDK",
+        "Google Maps API"
+      ],
+      "bullets": [
+        "Built a location-based service application consuming REST APIs (Google Geolocation); UI/UX improvements drove a 30"
+      ]
+    }
+  ],
+  "projects": [
+    {
+      "name": "Full-Stack Social Platform Backend",
+      "description": "Full-Stack Social Platform Backend",
+      "technologies": [
+        "Java",
+        "Spring Boot",
+        "Spring Security",
+        "Redis",
+        "JWT",
+        "Maven"
+      ],
+      "bullets": [
+        "Built a Spring Boot backend with JWT authentication, per-IP rate limiting, and a circuit breaker, deployed via Maven-based builds on Render.",
+        "Implemented a Redis Streams-based messaging pipeline that batch-flushes every 5 minutes with an optimistic-cache layer, sized to handle lakhs of concurrent interactions.",
+        "Exposed REST APIs consumed by an Android client, following Clean Architecture on the backend for testability and independent deployability."
+      ],
+      "year": "2025 - Present"
+    }
+  ],
+  "technical_skills": {
+    "Languages": [
+      "Java 17",
+      "SQL",
+      "XML",
+      "Kotlin"
+    ],
+    "Core Java": [
+      "OOP",
+      "Collections",
+      "Streams",
+      "Multithreading",
+      "Generics",
+      "JVM Internals (JIT",
+      "GC)"
+    ],
+    "Spring": [
+      "Spring Boot",
+      "Spring Security",
+      "Spring Cloud",
+      "Spring Data JPA",
+      "Spring MVC"
+    ],
+    "Integration": [
+      "Apache Camel (REST\\",
+      "↔\\",
+      "SOAP)",
+      "REST APIs",
+      "SOAP / WSDL",
+      "JWT",
+      "JMS"
+    ],
+    "Build & Tools": [
+      "Maven",
+      "Git",
+      "GitHub Actions",
+      "Azure DevOps",
+      "Docker"
+    ],
+    "Data": [
+      "PostgreSQL",
+      "MySQL",
+      "Redis (Streams",
+      "Pub/Sub",
+      "Caching)",
+      "JPA/Hibernate"
+    ],
+    "Cloud": [
+      "AWS (EC2",
+      "RDS",
+      "Route\\",
+      "53",
+      "S3",
+      "CloudFormation",
+      "Load Balancers",
+      "IAM",
+      "CloudWatch)"
+    ],
+    "Architecture": [
+      "Microservices",
+      "MVVM",
+      "Clean Architecture",
+      "Repository Pattern",
+      "SOLID",
+      "Event-Driven Architecture"
+    ]
+  },
+  "education": [
+    {
+      "institution": "Dr. JJ Magdum College of Engineering",
+      "degree": "B.Tech",
+      "field": "Computer Science",
+      "start_year": "2020",
+      "end_year": "2024",
+      "gpa": "8.54  / 10"
+    }
+  ],
+  "certifications": [
+    {
+      "name": "Mobile & Application Development",
+      "issuer": "Great Learning",
+      "year": ""
+    },
+    {
+      "name": "Data Structures in Java",
+      "issuer": "Great Learning",
+      "year": ""
+    },
+    {
+      "name": "Docker for Developers",
+      "issuer": "LinkedIn",
+      "year": ""
+    },
+    {
+      "name": "Java Programming",
+      "issuer": "Great Learning",
+      "year": ""
+    },
+    {
+      "name": "Git and GitHub",
+      "issuer": "Great Learning",
+      "year": ""
+    },
+    {
+      "name": "Android Compose with Kotlin",
+      "issuer": "LinkedIn",
+      "year": ""
+    }
+  ],
+  "seniority_level": "Mid-level",
+  "raw_text": ""
+}

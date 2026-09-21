@@ -1,0 +1,80 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[margin=0.75in]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+\usepackage{enumitem}
+\usepackage{titlesec}
+\usepackage{hyperref}
+\usepackage{xcolor}
+
+\hypersetup{colorlinks=true, linkcolor=black, urlcolor=blue}
+
+\pagestyle{empty}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{0pt}
+
+\titleformat{\section}{\large\bfseries\uppercase}{}{0em}{}[\titlerule]
+\titlespacing{\section}{0pt}{10pt}{6pt}
+
+\newcommand{\resumeSubheading}[4]{
+  \vspace{4pt}
+  \textbf{#1} \hfill #2 \\
+  \textit{#3} \hfill \textit{#4}
+  \vspace{2pt}
+}
+
+\begin{document}
+
+\begin{center}
+  {\LARGE \textbf{\VAR{name}}} \\[6pt]
+  \small \VAR{contact_line}
+\end{center}
+
+\vspace{6pt}
+
+\section{Profile}
+\VAR{profile_summary}
+
+\section{Experience}
+\begin{itemize}[leftmargin=*, nosep]
+\BLOCK{ for exp in experience }
+  \item[] \resumeSubheading{\VAR{exp.company}}{\VAR{exp.start_date} -- \VAR{exp.end_date}}{\VAR{exp.title}}{}
+  \begin{itemize}[leftmargin=1.5em, nosep]
+  \BLOCK{ for bullet in exp.bullets }
+    \item \VAR{bullet}
+  \BLOCK{ endfor }
+  \end{itemize}
+\BLOCK{ endfor }
+\end{itemize}
+
+\section{Projects}
+\begin{itemize}[leftmargin=*, nosep]
+\BLOCK{ for proj in projects }
+  \item[] \textbf{\VAR{proj.name}} \hfill \VAR{proj.year}
+  \begin{itemize}[leftmargin=1.5em, nosep]
+  \BLOCK{ for bullet in proj.bullets }
+    \item \VAR{bullet}
+  \BLOCK{ endfor }
+  \end{itemize}
+\BLOCK{ endfor }
+\end{itemize}
+
+\section{Technical Skills}
+\BLOCK{ for category, skills in technical_skills.items() }
+  \textbf{\VAR{category}:} \VAR{skills | join(', ')} \\[2pt]
+\BLOCK{ endfor }
+
+\section{Education}
+\BLOCK{ for edu in education }
+  \textbf{\VAR{edu.institution}} \hfill \VAR{edu.start_year} -- \VAR{edu.end_year} \\
+  \VAR{edu.degree}, \VAR{edu.field} \hfill CGPA: \VAR{edu.gpa}
+\BLOCK{ endfor }
+
+\section{Certifications}
+\BLOCK{ for cert in certifications }
+  \VAR{cert.name} --- \VAR{cert.issuer} \\[1pt]
+\BLOCK{ endfor }
+
+\end{document}

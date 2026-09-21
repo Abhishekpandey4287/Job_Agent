@@ -1,0 +1,37 @@
+{
+  "greenhouse": [
+    "razorpay", "freshworks", "postman", "chargebee", "clevertap",
+    "browserstack", "dezerv", "smallcase", "cred", "groww", "phonepe",
+    "meesho", "swiggy", "flipkart", "myntra", "paytm", "zomato",
+    "ola", "dunzo", "slice", "jupiter", "upstox", "zerodha", "policybazaar",
+    "nykaa", "lenskart", "cardekho", "bigbasket", "pharmeasy", "practo",
+    "unacademy", "byjus", "vedantu", "curefit", "cultfit", "dream11",
+    "sharechat", "moj", "inmobi", "zeta", "synapse", "setu", "juspay",
+    "cashfree", "billdesk", "mobikwik", "shiprocket", "delhivery",
+    "blackbuck", "rivigo", "porter", "urbancompany", "nobroker",
+    "housing", "magicbricks", "99acres", "spinny", "cars24", "acko",
+    "digit", "acko", "turtlemint", "acko", "browserstack", "postman",
+    "thoughtworks", "gojek", "grab", "stripe", "airbnb", "discord",
+    "figma", "notion", "datadog", "mongodb", "elastic", "confluent"
+  ],
+  "lever": [
+    "swiggy", "meesho", "sharechat", "dream11", "unacademy", "ola",
+    "cred", "razorpay", "phonepe", "groww", "upstox", "zerodha",
+    "postman", "freshworks", "chargebee", "clevertap", "browserstack",
+    "dezerv", "smallcase", "jupiter", "slice", "dunzo", "nykaa",
+    "lenskart", "practo", "pharmeasy", "bigbasket", "shiprocket",
+    "delhivery", "porter", "urbancompany", "spinny", "cars24",
+    "thoughtworks", "inmobi", "zeta", "setu", "juspay", "cashfree",
+    "acko", "turtlemint", "nobroker", "housing", "rivigo", "blackbuck"
+  ],
+  "ashby": [
+    "openai", "anthropic", "ramp", "notion", "figma", "linear",
+    "vercel", "supabase", "retool", "deel", "remote", "gitlab",
+    "hashicorp", "databricks", "snowflake", "palantir", "scale",
+    "cohere", "mistral", "perplexity", "harvey", "glean"
+  ],
+  "smartrecruiters": [
+    "visa", "bosch", "samsung", "siemens", "adidas", "mcdonalds",
+    "linkedin", "spotify", "uber", "lyft", "booking", "expedia"
+  ]
+}

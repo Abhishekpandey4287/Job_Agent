@@ -1,0 +1,6 @@
+{
+  "id": "android",
+  "label": "Android",
+  "priority": 1,
+  "aliases": ["ANDROID", "Mobile", "Kotlin"]
+}

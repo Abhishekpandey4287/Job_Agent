@@ -1,0 +1,6 @@
+{
+  "id": "backend",
+  "label": "Backend",
+  "priority": 2,
+  "aliases": ["BACKEND", "Java", "Spring Boot"]
+}
