@@ -49,17 +49,48 @@ def _strip_latex(text: str) -> str:
 
 
 def _split_tech(raw: str) -> List[str]:
-    parts = re.split(r",|;", raw)
+    """Split on commas/semicolons outside parentheses.
+
+    Keeps entries like ``Redis (Streams, caching, rate limiting)`` intact.
+    """
+    parts: List[str] = []
+    buf: List[str] = []
+    depth = 0
+    for ch in raw:
+        if ch == "(":
+            depth += 1
+            buf.append(ch)
+        elif ch == ")":
+            depth = max(0, depth - 1)
+            buf.append(ch)
+        elif ch in ",;" and depth == 0:
+            s = _strip_latex("".join(buf)).strip(" ·|")
+            if s:
+                parts.append(s)
+            buf = []
+        else:
+            buf.append(ch)
+    s = _strip_latex("".join(buf)).strip(" ·|")
+    if s:
+        parts.append(s)
+    return parts
+
+
+_SKILL_PLACEHOLDER_LABELS = frozenset({"label", "category", "items"})
+
+
+def _strip_tex_comments(tex: str) -> str:
+    """Drop % comments so macro docs like ``% \\sk{Label}{items}`` are not parsed."""
     out: List[str] = []
-    for p in parts:
-        s = _strip_latex(p).strip(" ·|")
-        if s:
-            out.append(s)
-    return out
+    for line in tex.splitlines(keepends=True):
+        # Keep \% escapes; drop real comments.
+        cleaned = re.sub(r"(?<!\\)%.*", "", line)
+        out.append(cleaned)
+    return "".join(out)
 
 
 def _parse_dates(date_str: str) -> Tuple[str, str, bool]:
-    raw = _strip_latex(date_str).replace("–", "-").replace("—", "-")
+    raw = _strip_latex(date_str).replace("–", "-").replace("—", "-").replace("--", "-")
     raw = re.sub(r"\s+", " ", raw).strip()
     if " - " in raw:
         bits = [x.strip() for x in raw.split(" - ")]
@@ -154,11 +185,84 @@ def _extract_contact(tex: str) -> ContactInfo:
 def _extract_profile(tex: str) -> str:
     m = re.search(r"%%PROFILE_START%%(.*?)%%PROFILE_END%%", tex, re.S)
     block = m.group(1) if m else ""
-    if not block:
-        m = re.search(r"\\section\{Profile\}(.*?)\\section\{", tex, re.S)
-        block = m.group(1) if m else ""
-    block = re.sub(r"\\section\{Profile\}", "", block)
+    if not block.strip():
+        for title in ("Profile", "Summary"):
+            m = re.search(rf"\\section\{{{title}\}}(.*?)\\section\{{", tex, re.S)
+            if m and m.group(1).strip():
+                block = m.group(1)
+                break
+    block = re.sub(r"\\section\{(?:Profile|Summary)\}", "", block)
     return _strip_latex(block)
+
+
+def _extract_skills(tex: str) -> Dict[str, List[str]]:
+    """Read \\sk{Category}{items} or the \\bn{Category}…\\par skill rows.
+
+    Only the Technical Skills section is scanned so preamble/macro docs
+    (e.g. ``% \\sk{Label}{items}``) never become real categories.
+    """
+    skills: Dict[str, List[str]] = {}
+    section = re.search(
+        r"\\section\{Technical Skills\}(.*?)(?=\\section\{|\Z)",
+        tex,
+        re.S,
+    )
+    body = _strip_tex_comments(section.group(1)) if section else _strip_tex_comments(tex)
+
+    for sm in re.finditer(r"\\sk\{([^{}]*)\}\{([^{}]*)\}", body):
+        cat = _strip_latex(sm.group(1)).rstrip(":").strip()
+        if not cat or cat.lower() in _SKILL_PLACEHOLDER_LABELS:
+            continue
+        items = _split_tech(sm.group(2))
+        # Drop docs that used the macro literally: \sk{Label}{items}
+        if items == ["items"] or (len(items) == 1 and items[0].lower() == "items"):
+            continue
+        if items:
+            skills[cat] = items
+    if skills:
+        return skills
+
+    for sm in re.finditer(r"\\bn\{([^{}]*)\}(.*?)\\par", body, re.S):
+        cat = _strip_latex(sm.group(1)).rstrip(":").strip()
+        if not cat or cat.lower() in _SKILL_PLACEHOLDER_LABELS:
+            continue
+        items = _split_tech(sm.group(2))
+        if items:
+            skills[cat] = items
+    return skills
+
+
+def _extract_certifications(tex: str) -> List[Certification]:
+    section = re.search(
+        r"\\section\{Certifications.*?\}(.*?)(?=\\section\{|\\end\{document\}|\Z)",
+        tex,
+        re.S,
+    )
+    body = section.group(1) if section else ""
+    certs: List[Certification] = []
+    for cm in re.finditer(r"\\cert\{[^{}]*\}\{([^{}]*)\}\{([^{}]*)\}", body):
+        certs.append(
+            Certification(
+                name=_strip_latex(cm.group(1)),
+                issuer=_strip_latex(cm.group(2)),
+                year="",
+            )
+        )
+    if certs:
+        return certs
+    for cm in re.finditer(
+        r"\\href\{[^{}]*\}\{\\color\{BlueAc\}([^{}]*)\}",
+        body,
+    ):
+        label = _strip_latex(cm.group(1))
+        issuer = ""
+        name = label
+        if "—" in label:
+            name, issuer = [x.strip() for x in label.split("—", 1)]
+        elif " - " in label:
+            name, issuer = [x.strip() for x in label.split(" - ", 1)]
+        certs.append(Certification(name=name, issuer=issuer, year=""))
+    return certs
 
 
 def _extract_roles_and_lists(tex: str, section: str) -> List[dict]:
@@ -250,30 +354,8 @@ def tex_to_master_resume(tex: str) -> MasterResume:
             )
         )
 
-    skills: Dict[str, List[str]] = {}
-    for sm in re.finditer(r"\\sk\{([^{}]*)\}\{([^{}]*)\}", tex):
-        cat = _strip_latex(sm.group(1)).rstrip(":")
-        skills[cat] = _split_tech(sm.group(2))
-
-    certs: List[Certification] = []
-    cert_section = re.search(
-        r"\\section\{Certifications.*?\}(.*?)(?=\\end\{document\}|\Z)",
-        tex,
-        re.S,
-    )
-    if cert_section:
-        for cm in re.finditer(
-            r"\\href\{[^{}]*\}\{\\color\{BlueAc\}([^{}]*)\}",
-            cert_section.group(1),
-        ):
-            label = _strip_latex(cm.group(1))
-            issuer = ""
-            name = label
-            if "—" in label:
-                name, issuer = [x.strip() for x in label.split("—", 1)]
-            elif " - " in label:
-                name, issuer = [x.strip() for x in label.split(" - ", 1)]
-            certs.append(Certification(name=name, issuer=issuer, year=""))
+    skills = _extract_skills(tex)
+    certs = _extract_certifications(tex)
 
     education = [
         Education(

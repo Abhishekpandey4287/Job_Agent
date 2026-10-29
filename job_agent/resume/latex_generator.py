@@ -126,12 +126,16 @@ def _plain_to_latex_profile(text: str) -> str:
 
 
 def _emphasize_keywords(template: str, keywords: list[str]) -> str:
-    """Bold JD keywords in Experience + Projects so PDFs visibly differ per job."""
+    """Bold JD keywords in Experience + Projects (Skills comes *before* Experience)."""
     start = template.find("\\section{Experience}")
-    skills = template.find("\\section{Technical Skills}")
-    if start == -1 or skills == -1 or skills <= start:
+    if start == -1:
         return template
-    body = template[start:skills]
+    end = template.find("\\section{Education}")
+    if end == -1:
+        end = template.find("\\section{Certifications}")
+    if end == -1:
+        end = len(template)
+    body = template[start:end]
     ranked = sorted(
         {k.strip() for k in keywords if k and len(k.strip()) >= 3},
         key=len,
@@ -155,23 +159,63 @@ def _emphasize_keywords(template: str, keywords: list[str]) -> str:
             return "\\bn{" + match.group(1) + "}"
 
         body = pattern.sub(_wrap, body)
-    return template[:start] + body + template[skills:]
+    return template[:start] + body + template[end:]
 
 
-def _skills_to_latex(skills: dict) -> str:
-    lines = ["\\section{Technical Skills}", ""]
+def _skills_use_colon_labels(template: str) -> bool:
+    """Android masters use \\sk{Languages:}{...}; Backend locked template uses \\sk{Languages}{...}."""
+    return bool(re.search(r"\\sk\{[^}\n]*:\}", template))
+
+
+def _is_locked_pdflatex_template(template: str) -> bool:
+    """Backend Final template: preamble must stay untouched; compile with pdfLaTeX."""
+    head = template.split("\\begin{document}", 1)[0]
+    return (
+        "RESUME TEMPLATE -- ABHISHEK PANDEY" in head
+        or (
+            "\\documentclass[11pt, letterpaper]{article}" in head
+            and "top=0.30in" in head
+            and "\\input{glyphtounicode}" in head
+            and "\\ifPDFTeX" not in head
+        )
+    )
+
+
+_SKILL_PLACEHOLDER_LABELS = frozenset({"label", "category", "items"})
+
+
+def _skills_to_latex(skills: dict, *, with_colon: bool = True) -> str:
+    # Match locked Backend template wrapper exactly.
+    lines = [
+        "\\section{Technical Skills}",
+        "\\begingroup",
+        "\\small\\color{BodyTx}",
+    ]
     for category, items in skills.items():
         if not items:
             continue
-        label = category if category.endswith(":") else f"{category}:"
+        raw = (category or "").strip()
+        if not raw or raw.lower() in _SKILL_PLACEHOLDER_LABELS:
+            continue
+        # Ignore tex_to_json corruption from macro docs: \sk{Label}{items}
+        cleaned = [i for i in items if i and str(i).strip().lower() != "items"]
+        if not cleaned or cleaned == ["items"]:
+            continue
+        if with_colon:
+            label = raw if raw.endswith(":") else f"{raw}:"
+        else:
+            label = raw.rstrip(":")
         label = _escape_latex(label)
-        escaped = ", ".join(_escape_latex(item) for item in items)
+        escaped = ", ".join(_escape_latex(item) for item in cleaned)
         lines.append(f"\\sk{{{label}}}{{{escaped}}}")
+    lines.append("\\endgroup")
     return "\n".join(lines)
 
 
 def _inject_skills(template: str, skills: dict) -> str:
-    skills_block = _skills_to_latex(skills)
+    skills_block = _skills_to_latex(
+        skills, with_colon=_skills_use_colon_labels(template)
+    )
     start_marker = "\\section{Technical Skills}"
     start = template.find(start_marker)
     if start == -1:
@@ -282,34 +326,53 @@ class LatexGenerator:
                 keywords + match.matching_skills + [match.job.title]
             ))
 
-        # The Profile section and the header tagline are fixed, human-reviewed blocks
-        # per resume profile: an Android resume always carries the Android master's
-        # wording, a Backend resume the Backend master's. Per-job variation comes from
-        # the skills list and keyword emphasis only, so the template is left as-is.
+        # Locked Backend template: never touch preamble / geometry / macros.
+        # Customize content only: Technical Skills order + Experience/Projects bolding.
+        # Do NOT shrink fonts/margins/spacing to fit — shorten content instead.
+        locked = _is_locked_pdflatex_template(template)
         tex_content = template
-
         if isinstance(resume, TailoredResume) and resume.technical_skills:
             tex_content = _inject_skills(tex_content, resume.technical_skills)
-
         tex_content = _emphasize_keywords(tex_content, keywords[:16])
-        tex_content = _prepare_tex_for_tectonic(tex_content)
+        if not locked:
+            tex_content = _prepare_tex_for_tectonic(tex_content)
 
         fname_base = file_basename or resume_base_name(role_category)
         tex_path = output_dir / f"{fname_base}.tex"
         pdf_path = output_dir / f"{fname_base}.pdf"
 
+        # Verify preamble byte-identical to master when locked
+        if locked:
+            master_preamble = template.split("\\begin{document}", 1)[0]
+            out_preamble = tex_content.split("\\begin{document}", 1)[0]
+            if out_preamble != master_preamble:
+                logger.error("locked_preamble_mutated", master=str(self.master_path))
+                tex_content = master_preamble + "\\begin{document}" + tex_content.split(
+                    "\\begin{document}", 1
+                )[1]
+
         tex_path.write_text(tex_content, encoding="utf-8")
-        logger.info("latex_generated", path=str(tex_path))
+        logger.info("latex_generated", path=str(tex_path), locked_pdflatex=locked)
 
         compiled_pdf = None
         if settings.compile_pdf:
-            compiled_pdf = self._compile_pdf(tex_path, pdf_path)
-            if compiled_pdf:
+            compiled_pdf = self._compile_pdf(tex_path, pdf_path, prefer_pdflatex=locked)
+            if compiled_pdf and not locked:
                 compiled_pdf = self._fit_to_max_pages(
                     tex_content, tex_path, pdf_path, compiled_pdf
                 )
+            elif compiled_pdf and locked:
+                pages = pdf_page_count(compiled_pdf)
+                if pages > 1:
+                    logger.warning(
+                        "resume_overflow_one_page",
+                        path=str(pdf_path),
+                        pages=pages,
+                        hint="Shorten bullets/skills — do not shrink fonts or margins",
+                    )
 
         return tex_path, compiled_pdf
+
 
     def generate_master_copy(self, output_dir: Path) -> tuple[Path, Path | None]:
         output_dir.mkdir(parents=True, exist_ok=True)
@@ -367,11 +430,24 @@ class LatexGenerator:
         )
         return recompiled or compiled_pdf
 
-    def _compile_pdf(self, tex_path: Path, pdf_path: Path) -> Path | None:
+    def _compile_pdf(
+        self, tex_path: Path, pdf_path: Path, *, prefer_pdflatex: bool = False
+    ) -> Path | None:
         settings = get_settings()
-        compilers = [settings.latex_compiler, "tectonic", "pdflatex", "xelatex"]
+        preferred = settings.latex_compiler
+        if prefer_pdflatex:
+            compilers = ["pdflatex", preferred, "tectonic", "xelatex"]
+        else:
+            compilers = [preferred, "pdflatex", "tectonic", "xelatex"]
+        # de-dupe while preserving order
+        seen: set[str] = set()
+        ordered: list[str] = []
+        for c in compilers:
+            if c and c not in seen:
+                seen.add(c)
+                ordered.append(c)
 
-        for compiler in compilers:
+        for compiler in ordered:
             if compiler == "tectonic":
                 result = self._compile_tectonic(tex_path, pdf_path)
             else:
@@ -382,25 +458,70 @@ class LatexGenerator:
         logger.warning(
             "pdf_compile_failed",
             tex=str(tex_path),
-            hint="Install tectonic: brew install tectonic (or fix PATH for /opt/homebrew/bin)",
+            hint="Install BasicTeX (pdflatex) or tectonic: brew install --cask basictex",
         )
         return None
 
+    def _find_pdflatex(self) -> str | None:
+        home = Path.home()
+        tiny_bins = sorted(
+            home.glob("Library/TinyTeX/bin/*/pdflatex"),
+            reverse=True,
+        ) + sorted(home.glob(".TinyTeX/bin/*/pdflatex"), reverse=True)
+        for candidate in (
+            shutil.which("pdflatex"),
+            "/Library/TeX/texbin/pdflatex",
+            *tiny_bins,
+            "/usr/local/texlive/2026/bin/universal-darwin/pdflatex",
+            "/usr/local/texlive/2025/bin/universal-darwin/pdflatex",
+            "/usr/local/texlive/2024/bin/universal-darwin/pdflatex",
+        ):
+            if candidate and Path(candidate).exists():
+                return str(candidate)
+        return None
+
+    @staticmethod
+    def _cleanup_latex_side_products(tex_path: Path) -> None:
+        """Keep only .tex + .pdf (+ cover letter) in the company folder."""
+        for suffix in (".aux", ".log", ".out", ".toc", ".fls", ".fdb_latexmk", ".synctex.gz"):
+            side = tex_path.with_suffix(suffix)
+            if side.exists():
+                try:
+                    side.unlink()
+                except OSError:
+                    pass
+
     def _compile_pdflatex(self, compiler: str, tex_path: Path, pdf_path: Path) -> Path | None:
-        exe = shutil.which(compiler) or compiler
+        if compiler == "pdflatex":
+            exe = self._find_pdflatex()
+        else:
+            exe = shutil.which(compiler) or (compiler if Path(compiler).exists() else None)
+        if not exe:
+            return None
         try:
             subprocess.run(
-                [exe, "-interaction=nonstopmode", "-output-directory",
-                 str(tex_path.parent), str(tex_path)],
+                [
+                    exe,
+                    "-interaction=nonstopmode",
+                    "-output-directory",
+                    str(tex_path.parent),
+                    str(tex_path),
+                ],
                 capture_output=True,
                 timeout=90,
                 check=True,
             )
             if pdf_path.exists():
+                self._cleanup_latex_side_products(tex_path)
                 logger.info("pdf_compiled", path=str(pdf_path), compiler=compiler)
                 return pdf_path
-        except (subprocess.CalledProcessError, FileNotFoundError, subprocess.TimeoutExpired):
-            pass
+        except (subprocess.CalledProcessError, FileNotFoundError, subprocess.TimeoutExpired) as e:
+            self._cleanup_latex_side_products(tex_path)
+            logger.warning(
+                "pdflatex_attempt_failed",
+                compiler=compiler,
+                error=str(e)[:200],
+            )
         return None
 
     def _compile_tectonic(self, tex_path: Path, pdf_path: Path) -> Path | None:

@@ -5,34 +5,32 @@
     "phone": "+917045933043",
     "linkedin": "linkedin.com/in/abhishek-pandey-0a500921b",
     "github": "github.com/Abhishekpandey4287",
-    "portfolio": "abhishek-pandey-dev.vercel.app",
+    "portfolio": "",
     "location": "Mumbai, India"
   },
-  "profile_summary": "Java Developer with 2 years of experience building web-based, enterprise-grade applications on Java 17, Spring Boot, and Spring Security. At Percipere (UK), designed and implemented a REST ↔ SOAP integration layer using Apache Camel to bridge legacy SOAP services with modern REST clients inside a SAP-integrated enterprise platform deployed across multiple countries, alongside 37+ REST APIs and 4+ production go-lives with zero critical post-live defects. Comfortable across the full development life cycle design documentation, coding, unit/integration testing, debugging, and deployment using Maven-based builds with AWS and CI/CD. Strong grasp of JVM internals (JIT, GC), OOP/SOLID, and microservice design.",
+  "profile_summary": "Full-Stack Java Developer with 2 years of experience owning applications end to end Spring Boot REST APIs, React 18 admin UIs, and AWS infrastructure. Built 8 custom enterprise applications with 5 production go-lives on a SAP S/4HANA-integrated warehouse platform. Strong in Spring Security/JWT, PostgreSQL, Redis, CloudFormation, and CI/CD. Prior Android (Kotlin) experience.",
   "total_experience_years": 2.0,
   "experience": [
     {
       "company": "Percipere",
-      "title": "Java Developer",
+      "title": "Software Engineer (Full-Stack: Java/Spring Boot + React)",
       "location": "",
       "start_date": "Oct 2024",
       "end_date": "Present",
       "is_current": true,
       "technologies": [
-        "Java 17",
-        "Spring Boot",
-        "Spring Security",
-        "Apache Camel",
-        "Maven",
-        "AWS"
+        "UK-based product company"
       ],
       "bullets": [
-        "Designed and built a REST-to-SOAP and SOAP-to-REST integration layer using Apache Camel, enabling a SAP-integrated enterprise platform to expose modern REST endpoints on top of legacy SOAP services deployed across multiple client environments internationally.",
-        "Developed 37+ REST APIs across 5 backend modules on Spring Boot, securing endpoints with Spring Security (role/action-based access control) and keeping client and server fully decoupled for independent release cadences.",
-        "Delivered 4+ production go-lives end-to-end covering design, coding, unit/integration testing, debugging, and UAT sign-off, with zero critical post-live defects.",
-        "Built a DB-driven dynamic configuration system that rolls out new business rules and routes via a single database entry, with zero code changes and no re-deployment across environments.",
-        "Diagnosed and resolved a race condition in an Apache Camel route under peak load by fixing the underlying shared mutable state. Zero production incidents since.",
-        "Built Maven-based CI/CD pipelines (GitHub Actions / Azure DevOps) and CloudFormation infrastructure-as-code, cutting environment provisioning from 4-6 hrs to 15-20 min and deployments 40"
+        "Built 8 custom applications with 5 production go-lives for clients, owning design, coding, testing, UAT, and deployment.",
+        "Developed 37+ REST APIs across 5 backend modules on Spring Boot (pick confirmation, putaway, returns, goods movement, inventory), secured with Spring Security role-based access.",
+        "Built a React 18 + Material UI admin SPA for multi-tenant warehouse clients: login, clients, portal/SAP users, S/4 tasks, and activity logs, with 3 roles (Administrator, Super User, User) enforced by route guards and per-role write rules.",
+        "Implemented server-paged task and log screens (debounced search, sort, filters) with in-browser Excel export.",
+        "Built one Axios client: bearer token, JWT expiry check at startup, login lockout (5 failures / 15 min), and mapped 409/429 errors Vite proxy to the Spring Boot API.",
+        "Integrated with SAP S/4HANA (serial-assignment and barcode-template APIs) replaced silent HTTP 200 failures with proper error propagation. Maintained an Apache Camel REST↔SOAP layer and RabbitMQ consumer fixed a Camel race condition.",
+        "Built a multi-tenant log analytics service (JWT, PostgreSQL, tenant routing, rate limiting) with Liquibase and JUnit.",
+        "Designed AWS architecture per client (EC2, ALB, RDS, Route 53, S3, IAM) with CloudFormation, cutting provisioning from 4--6 hrs to 15--20 min wrote Lambda + scheduler functions to auto start/stop EC2 and RDS for cost savings built CI/CD pipelines on AWS and Azure DevOps.",
+        "Earlier mobile work: shipped Android clients (Kotlin, Jetpack Compose, ML Kit) for this platform."
       ]
     },
     {
@@ -45,130 +43,97 @@
       "technologies": [
         "Java",
         "Spring Boot",
-        "MySQL",
-        "REST APIs"
+        "MySQL"
       ],
       "bullets": [
-        "Built REST APIs in Spring Boot for a co-working space management platform, implementing role-based access control across 3 roles and reducing server response time by 40 ms through query optimisation."
-      ]
-    },
-    {
-      "company": "Google",
-      "title": "Software Development Intern",
-      "location": "",
-      "start_date": "Aug 2022",
-      "end_date": "Sep 2022",
-      "is_current": false,
-      "technologies": [
-        "Java",
-        "Android SDK",
-        "Google Maps API"
-      ],
-      "bullets": [
-        "Built a location-based service application consuming REST APIs (Google Geolocation); UI/UX improvements drove a 30"
+        "Built Spring Boot REST APIs with role-based access control across 3 roles optimised MySQL queries, cutting API response time by 40 ms."
       ]
     }
   ],
   "projects": [
     {
-      "name": "Full-Stack Social Platform Backend",
-      "description": "Full-Stack Social Platform Backend",
+      "name": "Social Platform API",
+      "description": "Social Platform API",
       "technologies": [
-        "Java",
+        "Java 21",
         "Spring Boot",
-        "Spring Security",
+        "PostgreSQL",
         "Redis",
-        "JWT",
-        "Maven"
+        "Docker",
+        "AWS S3"
       ],
       "bullets": [
-        "Built a Spring Boot backend with JWT authentication, per-IP rate limiting, and a circuit breaker, deployed via Maven-based builds on Render.",
-        "Implemented a Redis Streams-based messaging pipeline that batch-flushes every 5 minutes with an optimistic-cache layer, sized to handle lakhs of concurrent interactions.",
-        "Exposed REST APIs consumed by an Android client, following Clean Architecture on the backend for testability and independent deployability."
+        "Designed a Spring Boot backend (feed, stories, comments, chat, notifications, call signaling) with JWT access/refresh tokens, Redis rate limiting, and login lockout.",
+        "Used Redis Streams to batch-persist likes to PostgreSQL added S3 presigned uploads, FCM push, and Docker."
       ],
-      "year": "2025 - Present"
+      "year": "Sep 2025 -- Mar 2026"
     }
   ],
   "technical_skills": {
-    "Languages": [
-      "Java 17",
-      "SQL",
-      "XML",
-      "Kotlin"
-    ],
-    "Core Java": [
-      "OOP",
-      "Collections",
-      "Streams",
-      "Multithreading",
-      "Generics",
-      "JVM Internals (JIT",
-      "GC)"
-    ],
-    "Spring": [
+    "Backend": [
+      "Java",
       "Spring Boot",
+      "Spring MVC",
       "Spring Security",
-      "Spring Cloud",
       "Spring Data JPA",
-      "Spring MVC"
-    ],
-    "Integration": [
-      "Apache Camel (REST\\",
-      "↔\\",
-      "SOAP)",
-      "REST APIs",
-      "SOAP / WSDL",
+      "Hibernate",
+      "REST",
       "JWT",
-      "JMS"
+      "Microservices",
+      "Apache Camel",
+      "RabbitMQ",
+      "SOAP/WSDL",
+      "Swagger/OpenAPI"
     ],
-    "Build & Tools": [
-      "Maven",
-      "Git",
-      "GitHub Actions",
-      "Azure DevOps",
-      "Docker"
+    "Frontend": [
+      "React 18",
+      "Material UI",
+      "React Router",
+      "JavaScript (ES6+)",
+      "Axios",
+      "Vite",
+      "HTML5",
+      "CSS3"
     ],
-    "Data": [
+    "Databases": [
       "PostgreSQL",
       "MySQL",
-      "Redis (Streams",
-      "Pub/Sub",
-      "Caching)",
-      "JPA/Hibernate"
+      "Redis (Streams, caching, rate limiting)",
+      "Liquibase",
+      "SQL"
     ],
-    "Cloud": [
-      "AWS (EC2",
-      "RDS",
-      "Route\\",
-      "53",
-      "S3",
-      "CloudFormation",
-      "Load Balancers",
-      "IAM",
-      "CloudWatch)"
+    "Cloud & DevOps": [
+      "AWS (EC2, RDS, S3, ALB, Route 53, IAM, CloudWatch, Lambda, EventBridge, CloudFormation)",
+      "Docker",
+      "GitHub Actions",
+      "Azure DevOps"
     ],
-    "Architecture": [
-      "Microservices",
-      "MVVM",
-      "Clean Architecture",
-      "Repository Pattern",
+    "Testing & Concepts": [
+      "JUnit",
+      "Mockito",
+      "Postman",
+      "Maven",
+      "Git",
+      "OOP",
       "SOLID",
-      "Event-Driven Architecture"
+      "Design Patterns",
+      "Multithreading",
+      "Multi-tenancy"
     ]
   },
   "education": [
     {
       "institution": "Dr. JJ Magdum College of Engineering",
       "degree": "B.Tech",
-      "field": "Computer Science",
+      "field": "Computer Science & Engineering",
       "start_year": "2020",
       "end_year": "2024",
-      "gpa": "8.54  / 10"
+      "gpa": "8.54 / 10"
     }
   ],
   "certifications": [
     {
-      "name": "Mobile & Application Development",
+      "name": "Java Programming",
       "issuer": "Great Learning",
       "year": ""
     },
@@ -179,22 +144,12 @@
     },
     {
       "name": "Docker for Developers",
-      "issuer": "LinkedIn",
-      "year": ""
-    },
-    {
-      "name": "Java Programming",
-      "issuer": "Great Learning",
+      "issuer": "LinkedIn Learning",
       "year": ""
     },
     {
       "name": "Git and GitHub",
       "issuer": "Great Learning",
-      "year": ""
-    },
-    {
-      "name": "Android Compose with Kotlin",
-      "issuer": "LinkedIn",
       "year": ""
     }
   ],

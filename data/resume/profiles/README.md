@@ -34,4 +34,18 @@ profiles/
 
 Numbered prefixes (`1-`, `2-`, `3-`) control Excel ranking priority (lower = first).
 
+## Turn a profile search on or off
+
+In `.env`:
+
+```
+PROFILE_BASED_SEARCH=true
+PROFILE_ANDROID=true
+PROFILE_BACKEND=false
+```
+
+`PROFILE_BASED_SEARCH=false` skips every profile. `PROFILE_<ID>=false` skips that
+track only. The id is the folder name without the priority number (`ANDROID`,
+`BACKEND`). A profile with no line stays on.
+
 LLM failover for personalization: Gemini → Groq → Cerebras (see `.env`).

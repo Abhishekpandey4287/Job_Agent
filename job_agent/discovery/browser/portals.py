@@ -755,6 +755,8 @@ class GlassdoorExtractor:
         return jobs[:max_results]
 
 
+# Browser websites. To add one: new extractor class above, then append it here,
+# and add its name to BRAVE_PORTALS. See job_agent/discovery/catalog.py.
 PORTAL_EXTRACTORS = [
     IndeedExtractor(),
     NaukriExtractor(),

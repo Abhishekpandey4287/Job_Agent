@@ -1,17 +1,19 @@
 """LLM-powered enhancements for matching and resume tailoring.
 
-Providers (failover on quota / auth / unavailable):
-  1. Google Gemini
-  2. Groq (OpenAI-compatible)
-  3. Cerebras (OpenAI-compatible)
+Providers:
+  Google Gemini, Groq, and Cerebras.
 
-When a key is missing, expired, or a model is exhausted, that provider/model
-is skipped for the rest of the run and the next one is tried.
+When more than one key is set, jobs are split across providers. Gemini takes
+job 1 (resume, then cover letter), Groq takes job 2 at the same time, then
+each takes the next job as soon as it is free. If one provider runs out of
+quota, the provider that still has quota finishes that resume or cover letter.
+A missing, expired, or exhausted key is skipped for the rest of the run.
 """
 
 from __future__ import annotations
 
 import asyncio
+import contextvars
 import json
 import re
 import time
@@ -54,6 +56,11 @@ CEREBRAS_DEFAULT_MODELS = (
     "gpt-oss-120b",
 )
 DEFAULT_PROVIDER_ORDER = ("gemini", "groq", "cerebras")
+
+# A resume and its cover letter stay on the provider that owns that job.
+_pinned_provider: contextvars.ContextVar[str | None] = contextvars.ContextVar(
+    "llm_pinned_provider", default=None
+)
 
 
 @dataclass
@@ -280,11 +287,21 @@ class LLMService:
         self._endpoints = _build_endpoints()
         self._state = _ProviderState()
         self._last_call_at = 0.0
+        self._lane_last: dict[str, float] = {}
+        self._lane_locks: dict[str, asyncio.Lock] = {}
+        self._rr = 0
+        self._rr_lock = asyncio.Lock()
         settings = get_settings()
         self._min_interval = float(
             getattr(settings, "llm_min_interval_seconds", 45.0) or 0
         )
         self._max_retries = int(getattr(settings, "llm_max_retries", 3) or 3)
+        self._parallel_providers = bool(
+            getattr(settings, "llm_parallel_providers", True)
+        )
+        for provider in self._provider_names():
+            self._lane_last[provider] = 0.0
+            self._lane_locks[provider] = asyncio.Lock()
 
         if self._endpoints:
             self.client = self._endpoints[0].client
@@ -312,22 +329,75 @@ class LLMService:
     def available(self) -> bool:
         return bool(self._endpoints)
 
-    def providers_summary(self) -> str:
+    def _provider_names(self) -> List[str]:
         seen: List[str] = []
-        for e in self._endpoints:
-            if e.provider not in seen:
-                seen.append(e.provider)
-        return " → ".join(seen) if seen else "none"
+        for endpoint in self._endpoints:
+            if endpoint.provider not in seen:
+                seen.append(endpoint.provider)
+        return seen
 
-    async def _pace(self, *, full: bool = True) -> None:
-        # Full gap after successful calls; short gap when failing over models
+    def providers_summary(self) -> str:
+        seen = self._provider_names()
+        if not seen:
+            return "none"
+        if self._parallel_providers and len(seen) >= 2:
+            return " + ".join(seen)
+        return " → ".join(seen)
+
+    def worker_providers(self) -> List[str]:
+        """Providers that can each own a whole job at the same time."""
+        names = self._schedulable_providers() or self._provider_names()
+        if not names:
+            return []
+        if not self._parallel_providers or len(names) < 2:
+            return names[:1]
+        return names
+
+    def pin(self, provider: str):
+        """Keep later calls in this task on one provider until unpin."""
+        return _pinned_provider.set(provider)
+
+    def unpin(self, token) -> None:
+        _pinned_provider.reset(token)
+
+    def _use_parallel(self) -> bool:
+        return self._parallel_providers and len(self._schedulable_providers()) >= 2
+
+    def _schedulable_providers(self) -> List[str]:
+        live: List[str] = []
+        for provider in self._provider_names():
+            endpoints = [ep for ep in self._endpoints if ep.provider == provider]
+            if any(self._endpoint_available(ep) for ep in endpoints):
+                live.append(provider)
+        return live
+
+    def _endpoint_available(self, ep: _Endpoint) -> bool:
+        if ep.key_id in self._state.skipped_providers:
+            return False
+        return f"{ep.provider}:{ep.model}" not in self._state.skipped_models
+
+    async def _pace(self, *, full: bool = True, lane: str | None = None) -> None:
+        # Full gap after successful calls; short gap when failing over models.
+        # Each provider has its own clock so Gemini and Groq do not wait on each other.
         interval = self._min_interval if full else min(5.0, max(2.0, self._min_interval * 0.1))
-        if interval > 0 and self._last_call_at > 0:
-            elapsed = time.monotonic() - self._last_call_at
+        last = self._lane_last.get(lane, 0.0) if lane else self._last_call_at
+        if interval > 0 and last > 0:
+            elapsed = time.monotonic() - last
             wait = interval - elapsed
             if wait > 0:
-                logger.info("llm_pacing_wait", seconds=round(wait, 1), full=full)
+                logger.info(
+                    "llm_pacing_wait",
+                    seconds=round(wait, 1),
+                    full=full,
+                    provider=lane or self.provider,
+                )
                 await asyncio.sleep(wait)
+
+    def _mark_called(self, lane: str | None) -> None:
+        now = time.monotonic()
+        self._last_call_at = now
+        if lane:
+            self._lane_last[lane] = now
 
     async def _call_gemini(
         self,
@@ -431,13 +501,88 @@ class LLMService:
         temperature: float = 0.3,
         json_mode: bool = False,
     ) -> str:
-        """Try each provider/model; skip on auth/quota/404; retry transient errors."""
+        """Run one prompt.
+
+        A pinned provider keeps a job's resume and cover letter together.
+        If that provider is out of quota, the next provider that still has
+        quota generates the document.
+        """
         if not self._endpoints:
             raise RuntimeError("No LLM providers configured")
 
+        if not self._use_parallel():
+            return await self._generate_chain(
+                self._endpoints,
+                prompt,
+                max_tokens=max_tokens,
+                temperature=temperature,
+                json_mode=json_mode,
+            )
+
+        live = self._schedulable_providers()
+        if not live:
+            return await self._generate_chain(
+                self._endpoints,
+                prompt,
+                max_tokens=max_tokens,
+                temperature=temperature,
+                json_mode=json_mode,
+            )
+
+        pinned = _pinned_provider.get()
+        if pinned and pinned in live:
+            ordered = [pinned] + [name for name in live if name != pinned]
+        elif pinned:
+            ordered = [name for name in live if name != pinned] or live
+        else:
+            async with self._rr_lock:
+                start = self._rr % len(live)
+                self._rr += 1
+            ordered = live[start:] + live[:start]
+
+        last_error: BaseException | None = None
+        for provider in ordered:
+            if pinned and provider != pinned:
+                print(f"  {pinned} is out of quota — {provider} is generating this")
+                logger.warning(
+                    "llm_job_handed_off",
+                    from_provider=pinned,
+                    to_provider=provider,
+                )
+            endpoints = [ep for ep in self._endpoints if ep.provider == provider]
+            try:
+                async with self._lane_locks[provider]:
+                    return await self._generate_chain(
+                        endpoints,
+                        prompt,
+                        max_tokens=max_tokens,
+                        temperature=temperature,
+                        json_mode=json_mode,
+                        lane=provider,
+                    )
+            except Exception as e:
+                last_error = e
+                logger.warning(
+                    "llm_lane_failed",
+                    provider=provider,
+                    error=str(e)[:160],
+                )
+        raise RuntimeError(str(last_error) if last_error else "All LLM providers failed")
+
+    async def _generate_chain(
+        self,
+        endpoints: List[_Endpoint],
+        prompt: str,
+        *,
+        max_tokens: int = 600,
+        temperature: float = 0.3,
+        json_mode: bool = False,
+        lane: str | None = None,
+    ) -> str:
+        """Try each model on one provider; skip on auth/quota/404; retry transient errors."""
         last_error: BaseException | None = None
         first_try = True
-        for ep in self._endpoints:
+        for ep in endpoints:
             if ep.key_id in self._state.skipped_providers:
                 continue
             skip_key = f"{ep.provider}:{ep.model}"
@@ -446,7 +591,7 @@ class LLMService:
 
             attempts = max(1, min(self._max_retries, 3))
             for attempt in range(1, attempts + 1):
-                await self._pace(full=first_try)
+                await self._pace(full=first_try, lane=lane)
                 first_try = False
                 try:
                     if ep.kind == "gemini":
@@ -467,7 +612,7 @@ class LLMService:
                         )
                     if not text.strip():
                         raise RuntimeError(f"Empty response from {ep.provider}:{ep.model}")
-                    self._last_call_at = time.monotonic()
+                    self._mark_called(lane)
                     if ep.provider != self.provider or ep.model != self.model:
                         logger.info(
                             "llm_fallback_used",
@@ -479,7 +624,7 @@ class LLMService:
                     self.provider = ep.provider
                     return text
                 except Exception as e:
-                    self._last_call_at = time.monotonic()
+                    self._mark_called(lane)
                     last_error = e
 
                     if _is_auth_error(e):

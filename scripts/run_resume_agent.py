@@ -23,6 +23,18 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 os.chdir(PROJECT_ROOT)
 sys.path.insert(0, str(PROJECT_ROOT))
 
+# TinyTeX / MacTeX pdfLaTeX for the locked Backend template
+_tex_bins = [
+    Path.home() / "Library/TinyTeX/bin/universal-darwin",
+    Path("/Library/TeX/texbin"),
+]
+_path = os.environ.get("PATH", "")
+for _bin in _tex_bins:
+    if _bin.is_dir() and str(_bin) not in _path:
+        os.environ["PATH"] = f"{_bin}{os.pathsep}{_path}"
+        _path = os.environ["PATH"]
+
+
 VENV_PYTHON = PROJECT_ROOT / ".venv" / "bin" / "python3"
 if VENV_PYTHON.exists() and Path(sys.executable).resolve() != VENV_PYTHON.resolve():
     os.execv(str(VENV_PYTHON), [str(VENV_PYTHON), *sys.argv])

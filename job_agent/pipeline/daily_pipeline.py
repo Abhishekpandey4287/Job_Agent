@@ -1,5 +1,6 @@
 """Daily job search pipeline orchestrator."""
 
+import asyncio
 from datetime import datetime
 from pathlib import Path
 from typing import List
@@ -99,7 +100,8 @@ class DailyPipeline:
             raw_jobs.extend(brave_jobs)
             errors.extend(brave_errors)
 
-        # API-based sources
+        # Older daily path. New websites belong in job_agent/discovery/catalog.py,
+        # which is what the main job search runs.
         api_registry = JobSourceRegistry()
         for adapter in [
             AdzunaAdapter(), JSearchAdapter(), RemotiveAdapter(),
@@ -156,13 +158,15 @@ class DailyPipeline:
 
         # LLM explanations only for top matches (pacing enforced inside LLMService)
         if self.llm.available:
-            for match in top_matches:
+            async def _explain(match: JobMatch) -> None:
                 try:
                     match.match_explanation = await self.llm.enhance_match_explanation(
                         match, resume
                     )
                 except Exception:
                     pass
+
+            await asyncio.gather(*[_explain(match) for match in top_matches])
 
         today = datetime.utcnow().strftime("%Y-%m-%d")
         output_dir = Path(self.settings.output_dir) / today
@@ -171,7 +175,8 @@ class DailyPipeline:
         basename_tracker = new_company_basename_tracker()
         cover_letter_tracker = new_company_cover_letter_tracker()
 
-        for match in top_matches:
+        job_providers = self.llm.worker_providers()
+        for job_index, match in enumerate(top_matches):
             record = repo.upsert_job(
                 match.job,
                 match_score=match.match_score,
@@ -190,14 +195,22 @@ class DailyPipeline:
                     match.job.title,
                     basenames_for_company(basename_tracker, match.job.company),
                 )
-                tailored = await self.llm.tailor_resume(resume, match)
+                provider = (
+                    job_providers[job_index % len(job_providers)] if job_providers else None
+                )
+                token = self.llm.pin(provider) if provider else None
+                try:
+                    tailored = await self.llm.tailor_resume(resume, match)
+                    cover_letter = await self.llm.generate_cover_letter(resume, match)
+                finally:
+                    if token is not None:
+                        self.llm.unpin(token)
                 tex_path, pdf_path = self.latex_gen.generate(
                     tailored, match.job.company, match.job.title, company_dir,
                     contact=resume, match=match, role_category="ANDROID",
                     file_basename=file_base,
                 )
 
-                cover_letter = await self.llm.generate_cover_letter(resume, match)
                 cl_name = cover_letter_filename(
                     "ANDROID",
                     match.job.title,

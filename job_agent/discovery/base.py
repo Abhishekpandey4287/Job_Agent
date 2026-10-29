@@ -1,5 +1,6 @@
 """Base class and registry for job source adapters."""
 
+import asyncio
 from abc import ABC, abstractmethod
 from typing import List
 
@@ -10,6 +11,13 @@ logger = get_logger(__name__)
 
 
 class JobSourceAdapter(ABC):
+    """One job website.
+
+    Register the subclass in ``job_agent.discovery.catalog``
+    (``API_WEBSITES`` or ``ATS_WEBSITES``). Browser sites are extractors
+    added to ``browser/portals.py`` instead of this class.
+    """
+
     name: str = "base"
 
     @abstractmethod
@@ -36,15 +44,14 @@ class JobSourceRegistry:
         locations: List[str],
         max_per_source: int = 50,
     ) -> tuple[List[RawJob], List[str]]:
-        all_jobs: List[RawJob] = []
-        errors: List[str] = []
-
-        for adapter in self._adapters.values():
+        async def _search_adapter(adapter: JobSourceAdapter) -> tuple[List[RawJob], List[str]]:
+            jobs_out: List[RawJob] = []
+            errs_out: List[str] = []
             for query in queries:
                 for location in locations:
                     try:
                         jobs = await adapter.search(query, location, max_per_source)
-                        all_jobs.extend(jobs)
+                        jobs_out.extend(jobs)
                         logger.info(
                             "source_search_complete",
                             source=adapter.name,
@@ -54,7 +61,17 @@ class JobSourceRegistry:
                         )
                     except Exception as e:
                         msg = f"{adapter.name}/{query}/{location}: {e}"
-                        errors.append(msg)
+                        errs_out.append(msg)
                         logger.error("source_search_failed", source=adapter.name, error=str(e))
+            return jobs_out, errs_out
+
+        batches = await asyncio.gather(
+            *[_search_adapter(adapter) for adapter in self._adapters.values()]
+        )
+        all_jobs: List[RawJob] = []
+        errors: List[str] = []
+        for jobs_out, errs_out in batches:
+            all_jobs.extend(jobs_out)
+            errors.extend(errs_out)
 
         return all_jobs, errors

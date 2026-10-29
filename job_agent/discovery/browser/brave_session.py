@@ -5,6 +5,7 @@ Does NOT submit applications, modify profiles, or export session tokens.
 """
 
 import asyncio
+import contextvars
 import os
 from pathlib import Path
 from typing import Optional
@@ -13,6 +14,35 @@ from job_agent.config import get_settings
 from job_agent.logging_config import get_logger
 
 logger = get_logger(__name__)
+
+# Each parallel site search binds its own tab. Tasks copy this context, so
+# one tab's navigation never lands on another site's page.
+_active_page: contextvars.ContextVar = contextvars.ContextVar("browser_active_page", default=None)
+
+
+def resolve_parallel_tabs(requested: int, site_count: int) -> int:
+    """How many sites to search at once. 0 or less means one tab per site."""
+    sites = max(0, int(site_count))
+    if sites == 0:
+        return 0
+    n = int(requested or 0)
+    if n <= 0:
+        return sites
+    return min(max(1, n), sites)
+
+
+def bind_page(page):
+    return _active_page.set(page)
+
+
+def unbind_page(token) -> None:
+    _active_page.reset(token)
+
+
+def current_page(fallback):
+    bound = _active_page.get()
+    return fallback if bound is None else bound
+
 
 BRAVE_EXECUTABLE = "/Applications/Brave Browser.app/Contents/MacOS/Brave Browser"
 DEFAULT_USER_DATA = os.path.expanduser(
@@ -36,6 +66,7 @@ class BraveSession:
         self._browser = None
         self._page = None
         self._owned = False
+        self._owned_pages: list = []
 
     async def __aenter__(self):
         await self.connect()
@@ -110,9 +141,18 @@ class BraveSession:
 
     @property
     def page(self):
-        if not self._page:
+        page = current_page(self._page)
+        if not page:
             raise RuntimeError("Browser session not connected")
-        return self._page
+        return page
+
+    async def new_tab(self):
+        """Open a tab this search owns. Closed when the session ends."""
+        if not self._context:
+            raise RuntimeError("Browser session not connected")
+        page = await self._context.new_page()
+        self._owned_pages.append(page)
+        return page
 
     async def navigate(self, url: str, wait_ms: int = 3000):
         page = self.page
@@ -257,6 +297,12 @@ class BraveSession:
         return reason
 
     async def close(self):
+        for page in list(self._owned_pages):
+            try:
+                await page.close()
+            except Exception:
+                pass
+        self._owned_pages.clear()
         if self._owned and self._context:
             await self._context.close()
         elif self._browser and not self._owned:

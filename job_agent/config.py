@@ -31,6 +31,9 @@ class Settings(BaseSettings):
     cerebras_models: str = "llama3.1-8b,llama-3.3-70b,gpt-oss-120b"
     llm_min_interval_seconds: float = 45.0  # quality + quota; 30–60s recommended
     llm_max_retries: int = 3
+    # Use Gemini and Groq (and Cerebras, when configured) at the same time.
+    # Each provider keeps its own pace. Set false to try them one after another.
+    llm_parallel_providers: bool = True
 
 
     # Job APIs
@@ -87,6 +90,8 @@ class Settings(BaseSettings):
 
     # Internet-wide discovery expansion
     resume_profiles_dir: str = "./data/resume/profiles"
+    # false = do not search from any resume profile
+    profile_based_search: bool = True
     active_profiles: str = ""  # empty = all folders under profiles/
     search_query_variants_per_profile: int = 10
     max_pages_per_source: int = 5
@@ -169,6 +174,9 @@ class Settings(BaseSettings):
     brave_cdp_url: str = ""  # Optional: connect to running Brave via CDP
     brave_headless: bool = False
     brave_portals: str = "indeed,glassdoor,shine,wellfound,naukri"
+    # 0 = one browser tab per site, all of those sites at once.
+    # Set a positive number to cap how many sites run together.
+    browser_parallel_tabs: int = 0
     # When CAPTCHA appears: pause so YOU can solve it in Brave (0 = skip portal immediately)
     brave_captcha_wait_seconds: int = 120
 

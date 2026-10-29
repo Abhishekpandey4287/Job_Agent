@@ -27,6 +27,7 @@ from job_agent.database.models import init_db
 from job_agent.database.repository import JobRepository
 from job_agent.discovery.orchestrator import run_discovery
 from job_agent.export.excel_exporter import ExcelExporter
+from job_agent.export.history_filter import exclude_known_jobs
 from job_agent.logging_config import setup_logging
 from job_agent.resume.folder_names import format_role_label
 from job_agent.resume.resume_agent import save_matches_snapshot
@@ -86,6 +87,23 @@ async def main():
     today = datetime.utcnow().strftime("%Y-%m-%d")
     out_dir = Path(settings.output_dir) / today
     out_dir.mkdir(parents=True, exist_ok=True)
+    excel_path = out_dir / f"android_backend_jobs_{today}.xlsx"
+
+    history = exclude_known_jobs(
+        top,
+        Path(settings.output_dir),
+        skip_file=excel_path,
+    )
+    top = history.kept
+    if history.workbooks:
+        print(
+            f"  Earlier Excel files: {len(history.workbooks)} "
+            f"— removed {history.removed_seen} already listed, "
+            f"{history.removed_applied} already applied"
+        )
+        for sample in history.samples:
+            print(f"    - {sample}")
+        print(f"  Fresh jobs kept: {len(top)}")
 
     strong = 0
     exporter = ExcelExporter()
@@ -124,7 +142,6 @@ async def main():
         snapshot_rows.append((match, track, resume_used))
 
     snapshot_file = save_matches_snapshot(out_dir, snapshot_rows)
-    excel_path = out_dir / f"android_backend_jobs_{today}.xlsx"
     exporter.export_dual_track(rows_for_excel, excel_path, resume_paths, outreach_map={})
 
     resume_eligible = sum(
@@ -186,24 +203,47 @@ async def main():
             print(f"    - {err[:120]}")
     repo.close()
 
-    _maybe_run_resume_agent(snapshot_file)
-    _maybe_run_referral_agent(excel_path)
+    _run_product_java_scan()
+
+    auto_resume = "--with-resume" in sys.argv
+    skip_referral = "--skip-referral" in sys.argv
+    _maybe_run_resume_agent(snapshot_file, auto_yes=auto_resume)
+    _maybe_run_referral_agent(excel_path, skip=skip_referral)
 
 
 def _python() -> str:
     return str(VENV_PYTHON if VENV_PYTHON.exists() else sys.executable)
 
 
-def _maybe_run_resume_agent(snapshot_path: Path) -> None:
+def _run_product_java_scan() -> None:
+    """Scan the separate 200-company Java list. Does not change job-search results."""
+    print("\n" + "=" * 60)
+    print("PRODUCT JAVA SCAN (separate from job search)")
+    print("=" * 60)
+    print("Scanning the 200 product-company career portals for Java backend roles.")
+    completed = subprocess.run(
+        [_python(), "-m", "product_java_scan"],
+        cwd=str(PROJECT_ROOT),
+        check=False,
+    )
+    if completed.returncode != 0:
+        print(f"Product Java scan exited {completed.returncode}. Job search results are unchanged.")
+
+
+def _maybe_run_resume_agent(snapshot_path: Path, *, auto_yes: bool = False) -> None:
     print("\n" + "=" * 60)
     print("RESUME AGENT (separate from job search)")
     print("=" * 60)
     print("Enrich JDs, tailor resumes, write cover letters for top matches.")
     print(f"Input snapshot: {snapshot_path}")
-    try:
-        answer = input("\nRun Resume Agent now? [yes/no]: ").strip().lower()
-    except EOFError:
-        answer = "no"
+    if auto_yes:
+        answer = "yes"
+        print("\nRun Resume Agent now? [yes/no]: yes")
+    else:
+        try:
+            answer = input("\nRun Resume Agent now? [yes/no]: ").strip().lower()
+        except EOFError:
+            answer = "no"
     if answer not in ("y", "yes"):
         print("Skipped. Run later with:")
         print("  .venv/bin/python3 scripts/run_resume_agent.py")
@@ -218,13 +258,18 @@ def _maybe_run_resume_agent(snapshot_path: Path) -> None:
     )
 
 
-def _maybe_run_referral_agent(excel_path: Path) -> None:
+def _maybe_run_referral_agent(excel_path: Path, *, skip: bool = False) -> None:
     print("\n" + "=" * 60)
     print("REFERRAL AGENT (separate from job search)")
     print("=" * 60)
     print("Find referral contacts + personalized messages (≤250 chars).")
     print("Uses Hunter.io / public web only — does NOT scrape LinkedIn.")
     print(f"Input Excel: {excel_path}")
+    if skip:
+        print("\nRun Referral Agent now? [yes/no]: no")
+        print("Skipped. Run later with:")
+        print("  .venv/bin/python3 scripts/run_referral_agent.py")
+        return
     try:
         answer = input("\nRun Referral Agent now? [yes/no]: ").strip().lower()
     except EOFError:

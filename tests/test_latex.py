@@ -51,8 +51,8 @@ def test_latex_generation(tmp_path, resume):
 
 
 def _profile_section(text: str) -> str:
-    match = re.search(r"\\section\{Profile\}(.*?)(?=\\section\{)", text, re.S)
-    assert match, "no Profile section found"
+    match = re.search(r"\\section\{(?:Profile|Summary)\}(.*?)(?=\\section\{)", text, re.S)
+    assert match, "no Profile or Summary section found"
     return " ".join(match.group(1).split())
 
 
@@ -94,6 +94,34 @@ def test_profile_summary_always_matches_master(tmp_path, request, profile_id, tr
 
 def _header(text: str) -> str:
     return text[text.find("\\begin{center}") : text.find("\\end{center}")]
+
+
+def test_backend_locked_preamble_untouched(tmp_path, backend_profile):
+    """Backend master preamble (11pt / geometry / macros) must stay byte-identical."""
+    master = backend_profile.tex_path.read_text(encoding="utf-8")
+    master_pre = master.split("\\begin{document}", 1)[0]
+    resume = backend_profile.resume
+    tailored = TailoredResume(
+        job_id="t",
+        company="Acme",
+        job_title="Java Backend Developer",
+        profile_summary="ignored",
+        experience=resume.experience,
+        projects=resume.projects,
+        technical_skills={"Languages": ["Java", "SQL"], "Frameworks": ["Spring Boot"]},
+        education=resume.education,
+        certifications=resume.certifications,
+        keywords_used=["Java", "Spring Boot"],
+    )
+    gen = LatexGenerator()
+    gen.master_path = backend_profile.tex_path
+    tex_path, _ = gen.generate(
+        tailored, "Acme", "Java Backend Developer", tmp_path, role_category="BACKEND"
+    )
+    out = tex_path.read_text(encoding="utf-8")
+    assert out.split("\\begin{document}", 1)[0] == master_pre
+    assert "\\sk{Languages}" in out
+    assert "\\begingroup" in out[out.find("\\section{Technical Skills}") :]
 
 
 def test_header_tagline_always_matches_master(tmp_path, android_profile):

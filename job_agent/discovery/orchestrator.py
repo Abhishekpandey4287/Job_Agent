@@ -3,40 +3,22 @@
 from __future__ import annotations
 
 import asyncio
+import time
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from typing import Dict, List, Sequence, Tuple
 
 from job_agent.config import get_settings
-from job_agent.discovery.adzuna import AdzunaAdapter
-from job_agent.discovery.apify_linkedin import ApifyLinkedInJobsAdapter
-from job_agent.discovery.arbeitnow import ArbeitnowAdapter
-from job_agent.discovery.ashby import AshbyAdapter
-from job_agent.discovery.base import JobSourceRegistry
-from job_agent.discovery.brave_browser import BraveBrowserAdapter, DEFAULT_SEARCH_MATRIX
 from job_agent.discovery.career_portal import resolve_career_portal_ids
+from job_agent.discovery.catalog import SearchContext, list_websites, parallel_collectors
 from job_agent.discovery.company_careers import discover_company_careers
-from job_agent.discovery.greenhouse import GreenhouseAdapter
-from job_agent.discovery.himalayas import HimalayasAdapter
-from job_agent.discovery.jsearch import JSearchAdapter
-from job_agent.discovery.lever import LeverAdapter
-from job_agent.discovery.public_browser import PublicBrowserAdapter, PUBLIC_SEARCH_MATRIX
-from job_agent.discovery.remotive import RemotiveAdapter
-from job_agent.discovery.remoteok import RemoteOKAdapter
-from job_agent.discovery.serpapi_jobs import SerpAPIJobsAdapter
-from job_agent.discovery.smartrecruiters import SmartRecruitersAdapter
 from job_agent.discovery.source_stats import DiscoveryStatsCollector
-from job_agent.discovery.web_search_jobs import WebSearchJobsAdapter
-from job_agent.discovery.weworkremotely import WeWorkRemotelyAdapter
 from job_agent.logging_config import get_logger
 from job_agent.matching.multi_profile import score_job_multi
 from job_agent.normalization.dedupe import deduplicate_jobs_aggressive
 from job_agent.normalization.filters import normalize_job
 from job_agent.profiles import ResumeProfile, load_profiles
-from job_agent.profiles.query_generator import (
-    generate_all_queries,
-    generate_web_search_queries,
-)
+from job_agent.profiles.query_generator import generate_all_queries
 from job_agent.schemas import JobMatch, NormalizedJob, RawJob
 
 logger = get_logger(__name__)
@@ -217,205 +199,58 @@ async def run_discovery(
     raw_jobs: List[RawJob] = []
 
     profiles = load_profiles()
+    if not profiles:
+        print(
+            "  Profile-based search is off. "
+            "Set PROFILE_BASED_SEARCH=true and PROFILE_<ID>=true in .env."
+        )
+        return DiscoveryResult(
+            top_rows=[],
+            raw_count=0,
+            normalized_count=0,
+            deduped_count=0,
+            matched_count=0,
+            profile_match_counts={},
+            stats=stats,
+            errors=errors,
+            queries_used=[],
+            locations_used=[],
+            profiles=[],
+        )
     max_variants = int(getattr(settings, "search_query_variants_per_profile", 10) or 10)
     queries = generate_all_queries(profiles, max_variants_per_profile=max_variants)
     locations = _job_locations()
     max_per_source = int(getattr(settings, "max_results_per_source", 200) or 200)
-    max_pages = int(getattr(settings, "max_pages_per_source", 5) or 5)
-    delay = float(getattr(settings, "source_delay_seconds", 2) or 0)
 
     print(f"  Profiles loaded: {[p.id for p in profiles]}")
     print(f"  Query variants: {len(queries)} across {len(profiles)} profiles")
     print(f"  Locations: {len(locations)}")
+    websites = list_websites()
+    print(f"  Websites registered: {len(websites)}")
+    print("\n  --- Searching websites in parallel ---")
 
-    # --- Brave / public browser ---
-    brave_used = False
-    public_browser_used = False
-    if settings.brave_browser_enabled and cdp_url:
-        try:
-            settings.brave_cdp_url = cdp_url
-            brave = BraveBrowserAdapter()
-            # Keep Brave matrix small: empty/login portals abort after 3 empties.
-            # Prefer DEFAULT_SEARCH_MATRIX when query list is huge.
-            focused = [
-                (q, loc)
-                for q in queries[:5]
-                for loc in locations[:3]
-            ]
-            matrix = focused or DEFAULT_SEARCH_MATRIX
-            jobs, errs, portal_counts, blocked = await brave.search_batch(
-                search_matrix=matrix,
-                max_per_combo=30,
-            )
-            raw_jobs.extend(jobs)
-            errors.extend(errs)
-            stats.merge_portal_counts(portal_counts, blocked)
-            brave_used = True
-            print(f"  Brave browser jobs: {len(jobs)}")
-        except Exception as e:
-            errors.append(f"brave_browser: {e}")
-            stats.record_blocked("brave_browser", str(e)[:100])
-            print(f"  Brave FAILED: {e}")
-    elif settings.brave_browser_enabled:
-        public = PublicBrowserAdapter()
-        matrix = [(q, loc) for q in queries[:8] for loc in ("Mumbai", "India", "Remote")]
-        try:
-            jobs, errs = await public.search_batch(
-                search_matrix=matrix or PUBLIC_SEARCH_MATRIX,
-                max_per_combo=40,
-            )
-            raw_jobs.extend(jobs)
-            errors.extend(errs)
-            public_browser_used = len(jobs) > 0
-            by_portal: Dict[str, int] = {}
-            for j in jobs:
-                p = j.source.replace("public_", "")
-                by_portal[p] = by_portal.get(p, 0) + 1
-            for p, c in by_portal.items():
-                stats.record_success(p, c)
-            print(f"  Public browser jobs: {len(jobs)}")
-        except Exception as e:
-            errors.append(f"public_browser: {e}")
-            stats.record_blocked("public_browser", str(e)[:100])
-
-    if delay:
-        await asyncio.sleep(min(delay, 2))
-
-    # --- ATS ---
-    print("\n  --- ATS platforms ---")
-    for adapter in [GreenhouseAdapter(), LeverAdapter(), AshbyAdapter(), SmartRecruitersAdapter()]:
-        if not await adapter.health_check():
-            stats.record_disabled(adapter.name, "not configured / empty boards")
+    ctx = SearchContext(
+        queries=queries,
+        locations=locations,
+        profiles=profiles,
+        max_per_source=max_per_source,
+        settings=settings,
+        stats=stats,
+        errors=errors,
+        cdp_url=cdp_url,
+    )
+    started = time.perf_counter()
+    batches = await asyncio.gather(*parallel_collectors(ctx), return_exceptions=True)
+    for batch in batches:
+        if isinstance(batch, Exception):
+            errors.append(f"parallel_source: {batch}")
+            logger.error("parallel_source_failed", error=str(batch)[:160])
             continue
-        try:
-            jobs = await adapter.search("*", "India", min(80, max_per_source))
-            raw_jobs.extend(jobs)
-            stats.record_success(adapter.name, len(jobs))
-            print(f"  [{adapter.name}] {len(jobs)} jobs")
-        except Exception as e:
-            errors.append(f"{adapter.name}: {e}")
-            stats.record_blocked(adapter.name, str(e)[:100])
-            print(f"  [{adapter.name}] FAILED: {e}")
-        if delay:
-            await asyncio.sleep(min(delay, 1.5))
-
-    # --- Web search (profile-driven) ---
-    print("\n  --- Search-engine discovery ---")
-    web = WebSearchJobsAdapter()
-    if await web.health_check():
-        try:
-            dynamic = generate_web_search_queries(profiles, max_per_profile=6)
-            ws_jobs, ws_errs = await web.search_internet(
-                max_total=min(200, max_per_source)
-            )
-            raw_jobs.extend(ws_jobs)
-            errors.extend(ws_errs)
-            # Only run dynamic extras if internet search produced results or didn't trip breaker
-            breaker_hit = any("circuit breaker" in e.lower() for e in ws_errs)
-            if not breaker_hit:
-                for q in dynamic[:12]:
-                    try:
-                        extra = await web._search_query(q, "India", 15)
-                        raw_jobs.extend(extra)
-                    except Exception as e:
-                        errors.append(f"web_search/{q[:40]}: {e}")
-                    await asyncio.sleep(float(getattr(settings, "request_delay_seconds", 1) or 1))
-            else:
-                errors.append("web_search: skipped dynamic extras after circuit breaker")
-            stats.record_success("web_search", len(ws_jobs))
-            print(f"  [web_search] {len(ws_jobs)}+ dynamic extras")
-        except Exception as e:
-            errors.append(f"web_search: {e}")
-            stats.record_blocked("web_search", str(e)[:100])
-    else:
-        stats.record_disabled("web_search", "disabled")
-
-    # SerpAPI
-    serp = SerpAPIJobsAdapter()
-    if await serp.health_check():
-        serp_count = 0
-        for query in queries[:10]:
-            for loc in locations[:3]:
-                try:
-                    jobs = await serp.search(query, loc, 15)
-                    serp_count += len(jobs)
-                    raw_jobs.extend(jobs)
-                except Exception as e:
-                    errors.append(f"serpapi/{query}: {e}")
-        stats.record_success("serpapi_google_jobs", serp_count)
-        print(f"  [serpapi] {serp_count} jobs")
-    else:
-        stats.record_disabled("serpapi", "API key not configured")
-
-    # --- Apify LinkedIn ---
-    print("\n  --- Apify LinkedIn ---")
-    apify = ApifyLinkedInJobsAdapter()
-    if await apify.health_check():
-        try:
-            titles = queries[:12]
-            locs = [l for l in locations if l.lower() not in ("remote india",)][:6]
-            apify_jobs, apify_errs = await apify.search_batch(
-                titles=titles or ["Android Developer", "Backend Engineer"],
-                locations=locs or ["Mumbai", "India", "Remote"],
-                max_per_search=settings.apify_linkedin_max_rows,
-            )
-            raw_jobs.extend(apify_jobs)
-            errors.extend(apify_errs)
-            if apify_jobs:
-                stats.record_success("apify_linkedin", len(apify_jobs))
-            elif any("not rented" in e.lower() for e in apify_errs):
-                stats.record_disabled("apify_linkedin", "Actor not rented")
-            else:
-                stats.record_success("apify_linkedin", 0)
-            print(f"  [apify_linkedin] {len(apify_jobs)} jobs")
-            for err in apify_errs[:3]:
-                print(f"  ! {err}")
-        except Exception as e:
-            errors.append(f"apify_linkedin: {e}")
-            stats.record_blocked("apify_linkedin", str(e)[:100])
-    else:
-        if not settings.apify_linkedin_enabled:
-            stats.record_disabled(
-                "apify_linkedin", "disabled (APIFY_LINKEDIN_ENABLED=false)"
-            )
-        else:
-            stats.record_disabled("apify_linkedin", "APIFY_API_TOKEN not set")
-
-    # --- Remote boards & public APIs (isolated + concurrent) ---
-    print("\n  --- Remote boards & public APIs ---")
-    registry = JobSourceRegistry()
-    for a in [
-        RemotiveAdapter(), ArbeitnowAdapter(), RemoteOKAdapter(),
-        HimalayasAdapter(), WeWorkRemotelyAdapter(),
-        AdzunaAdapter(), JSearchAdapter(),
-    ]:
-        registry.register(a)
-
-    api_queries = queries[:8] or ["Android", "Backend", "Java"]
-    req_delay = float(getattr(settings, "request_delay_seconds", 1) or 0.5)
-
-    async def _run_api_adapter(adapter) -> List[RawJob]:
-        if not await adapter.health_check():
-            stats.record_disabled(adapter.name, "disabled or missing key")
-            print(f"  [{adapter.name}] DISABLED")
-            return []
-        collected: List[RawJob] = []
-        try:
-            for q in api_queries[:4]:
-                jobs = await adapter.search(q, "Remote", min(max_per_source, 100))
-                collected.extend(jobs)
-                await asyncio.sleep(req_delay)
-            stats.record_success(adapter.name, len(collected))
-            print(f"  [{adapter.name}] {len(collected)} jobs")
-        except Exception as e:
-            errors.append(f"{adapter.name}: {e}")
-            stats.record_blocked(adapter.name, str(e)[:100])
-            print(f"  [{adapter.name}] FAILED: {e}")
-        return collected
-
-    api_batches = await asyncio.gather(*[_run_api_adapter(a) for a in registry.get_all()])
-    for batch in api_batches:
         raw_jobs.extend(batch)
+    brave_used = ctx.brave_used
+    public_browser_used = ctx.public_browser_used
+    print(f"  Parallel website search finished in {time.perf_counter() - started:.0f}s")
+
 
     # --- Company career feedback loop ---
     if getattr(settings, "enable_company_career_discovery", True):

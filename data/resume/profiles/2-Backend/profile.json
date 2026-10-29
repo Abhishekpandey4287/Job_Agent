@@ -2,5 +2,12 @@
   "id": "backend",
   "label": "Backend",
   "priority": 2,
-  "aliases": ["BACKEND", "Java", "Spring Boot"]
+  "aliases": ["BACKEND", "Java", "Java Backend", "Spring Boot", "Microservices"],
+  "title_hints": [
+    "Java Backend Developer",
+    "Spring Boot Developer",
+    "Java Developer",
+    "Backend Engineer",
+    "Microservices Engineer"
+  ]
 }

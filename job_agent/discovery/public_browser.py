@@ -4,16 +4,18 @@ Used when Brave CDP is unavailable. Does NOT claim to use the user's Brave Switc
 Read-only: never submits applications.
 """
 
+import asyncio
 from typing import List, Protocol
 
+from job_agent.config import get_settings
 from job_agent.discovery.base import JobSourceAdapter
-from job_agent.discovery.browser.portals import (
-    CutshortExtractor,
-    FounditExtractor,
-    GlassdoorExtractor,
-    IndeedExtractor,
-    WellfoundExtractor,
+from job_agent.discovery.browser.brave_session import (
+    bind_page,
+    current_page,
+    resolve_parallel_tabs,
+    unbind_page,
 )
+from job_agent.discovery.catalog import public_browser_extractors
 from job_agent.logging_config import get_logger
 from job_agent.schemas import RawJob
 
@@ -49,6 +51,7 @@ class _PlaywrightPublicSession:
         self._browser = None
         self._context = None
         self._page = None
+        self._owned_pages: list = []
 
     async def __aenter__(self):
         from playwright.async_api import async_playwright
@@ -67,6 +70,12 @@ class _PlaywrightPublicSession:
         return self
 
     async def __aexit__(self, *args):
+        for page in list(getattr(self, "_owned_pages", [])):
+            try:
+                await page.close()
+            except Exception:
+                pass
+        self._owned_pages = []
         if self._context:
             await self._context.close()
         if self._browser:
@@ -76,17 +85,21 @@ class _PlaywrightPublicSession:
 
     @property
     def page(self):
-        return self._page
+        return current_page(self._page)
+
+    async def new_tab(self):
+        page = await self._context.new_page()
+        self._owned_pages.append(page)
+        return page
 
     async def navigate(self, url: str, wait_ms: int = 3000):
-        import asyncio
-
-        await self._page.goto(url, wait_until="domcontentloaded", timeout=45000)
+        await self.page.goto(url, wait_until="domcontentloaded", timeout=45000)
         await asyncio.sleep(wait_ms / 1000)
 
     async def detect_blocker(self):
-        content = (await self._page.content()).lower()
-        url = self._page.url.lower()
+        page = self.page
+        content = (await page.content()).lower()
+        url = page.url.lower()
         blockers = [
             ("captcha", "CAPTCHA detected"),
             ("challenge-platform", "Security challenge detected"),
@@ -103,13 +116,7 @@ class PublicBrowserAdapter(JobSourceAdapter):
     name = "public_browser"
 
     def __init__(self):
-        self.extractors = [
-            IndeedExtractor(),
-            CutshortExtractor(),
-            WellfoundExtractor(),
-            FounditExtractor(),
-            GlassdoorExtractor(),
-        ]
+        self.extractors = public_browser_extractors()
 
     async def health_check(self) -> bool:
         return True
@@ -126,40 +133,82 @@ class PublicBrowserAdapter(JobSourceAdapter):
         matrix = search_matrix or PUBLIC_SEARCH_MATRIX
         all_jobs: List[RawJob] = []
         errors: List[str] = []
-        blocked: set[str] = set()
+        tab_count = resolve_parallel_tabs(
+            int(getattr(get_settings(), "browser_parallel_tabs", 0) or 0),
+            len(self.extractors),
+        )
 
         try:
             async with _PlaywrightPublicSession() as session:
-                for extractor in self.extractors:
-                    if extractor.name in blocked:
+                if tab_count:
+                    if tab_count >= len(self.extractors):
+                        print(f"  Browser tabs: {tab_count} (one tab per site, all at once)")
+                    else:
+                        print(
+                            f"  Browser tabs: {tab_count} at a time "
+                            f"across {len(self.extractors)} sites"
+                        )
+                tabs = [await session.new_tab() for _ in range(tab_count)]
+                tab_queue: asyncio.Queue = asyncio.Queue()
+                for tab in tabs:
+                    tab_queue.put_nowait(tab)
+
+                async def _search_portal(extractor):
+                    page = await tab_queue.get()
+                    token = None
+                    portal_jobs: List[RawJob] = []
+                    portal_errors: List[str] = []
+                    try:
+                        token = bind_page(page)
+                        for query, location in matrix:
+                            try:
+                                jobs = await extractor.search(
+                                    session, query, location, max_per_combo
+                                )
+                                if not jobs:
+                                    blocker = await session.detect_blocker()
+                                    if blocker:
+                                        logger.warning(
+                                            "public_portal_blocked",
+                                            portal=extractor.name,
+                                            reason=blocker,
+                                        )
+                                        break
+                                for job in jobs:
+                                    job.source = f"public_{extractor.name}"
+                                portal_jobs.extend(jobs)
+                                logger.info(
+                                    "public_portal_complete",
+                                    portal=extractor.name,
+                                    query=query,
+                                    location=location,
+                                    count=len(jobs),
+                                )
+                            except Exception as e:
+                                msg = f"public_{extractor.name}/{query}/{location}: {e}"
+                                portal_errors.append(msg)
+                                logger.error(
+                                    "public_portal_failed", portal=extractor.name, error=str(e)
+                                )
+                    finally:
+                        if token is not None:
+                            unbind_page(token)
+                        tab_queue.put_nowait(page)
+                    print(f"  [public_{extractor.name}] {len(portal_jobs)} jobs")
+                    return portal_jobs, portal_errors
+
+                results = await asyncio.gather(
+                    *[_search_portal(extractor) for extractor in self.extractors],
+                    return_exceptions=True,
+                )
+                for result in results:
+                    if isinstance(result, Exception):
+                        errors.append(f"public_portal: {result}")
+                        logger.error("public_portal_failed", error=str(result)[:160])
                         continue
-                    for query, location in matrix:
-                        try:
-                            jobs = await extractor.search(session, query, location, max_per_combo)
-                            if not jobs:
-                                blocker = await session.detect_blocker()
-                                if blocker:
-                                    blocked.add(extractor.name)
-                                    logger.warning(
-                                        "public_portal_blocked",
-                                        portal=extractor.name,
-                                        reason=blocker,
-                                    )
-                                    break
-                            for job in jobs:
-                                job.source = f"public_{extractor.name}"
-                            all_jobs.extend(jobs)
-                            logger.info(
-                                "public_portal_complete",
-                                portal=extractor.name,
-                                query=query,
-                                location=location,
-                                count=len(jobs),
-                            )
-                        except Exception as e:
-                            msg = f"public_{extractor.name}/{query}/{location}: {e}"
-                            errors.append(msg)
-                            logger.error("public_portal_failed", portal=extractor.name, error=str(e))
+                    portal_jobs, portal_errors = result
+                    all_jobs.extend(portal_jobs)
+                    errors.extend(portal_errors)
         except Exception as e:
             errors.append(f"public_browser_session: {e}")
             logger.error("public_browser_session_failed", error=str(e))

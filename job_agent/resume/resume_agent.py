@@ -6,8 +6,8 @@ JD enrich → optional LLM explanations → tailor → LaTeX/PDF → cover lette
 
 from __future__ import annotations
 
+import asyncio
 import json
-import shutil
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -316,7 +316,9 @@ async def generate_resumes_from_snapshot(
     out_dir = snapshot.parent
     excel = excel_path or resolve_excel_for_day(out_dir)
 
-    profiles = load_profiles()
+    # Search flags (PROFILE_ANDROID=false etc.) must not hide master templates —
+    # resume generation still needs every profile's tex/json.
+    profiles = load_profiles(respect_search_flags=False)
     android_resume = None
     backend_resume = None
     for p in profiles:
@@ -325,13 +327,22 @@ async def generate_resumes_from_snapshot(
         elif p.id == "backend":
             backend_resume = p.resume
     if android_resume is None:
-        android_resume = ResumeParser(
-            json_path=str(PROJECT_ROOT / "data/resume/master_resume.json")
-        ).load()
+        legacy_android = PROJECT_ROOT / "data/resume/master_resume.json"
+        if legacy_android.exists():
+            android_resume = ResumeParser(json_path=str(legacy_android)).load()
     if backend_resume is None:
-        backend_resume = ResumeParser(
-            json_path=str(PROJECT_ROOT / "data/resume/master_backend.json")
-        ).load()
+        legacy_backend = PROJECT_ROOT / "data/resume/master_backend.json"
+        if legacy_backend.exists():
+            backend_resume = ResumeParser(json_path=str(legacy_backend)).load()
+    if android_resume is None and profiles:
+        android_resume = profiles[0].resume
+    if backend_resume is None and profiles:
+        backend_resume = profiles[-1].resume
+    if android_resume is None or backend_resume is None:
+        raise FileNotFoundError(
+            "No resume profiles found under data/resume/profiles/. "
+            "Add at least one profile folder with master_resume.json or master.tex."
+        )
 
     def _resolve_for_job(resume_used: str, match: JobMatch):
         """Pick profile master resume + master.tex from role / company match.
@@ -416,10 +427,18 @@ async def generate_resumes_from_snapshot(
         )
     else:
         print(
-            f"\n  LLM chain: {llm.providers_summary()} "
+            f"\n  LLM providers: {llm.providers_summary()} "
             f"(active: {llm.provider}/{llm.model})"
         )
-        print(f"  Pace: {llm._min_interval:.0f}s between LLM calls (quality mode)")
+        lanes = llm.worker_providers()
+        if len(lanes) >= 2:
+            print(
+                "  Job lanes: "
+                + ", ".join(f"job {i + 1} → {name}" for i, name in enumerate(lanes))
+                + ", then whichever model is free"
+            )
+        pace_scope = "per provider" if len(lanes) >= 2 else "between calls"
+        print(f"  Pace: {llm._min_interval:.0f}s {pace_scope}")
         print(f"  Profiles: {[p.output_folder_name for p in profiles]}")
         # Only LLM-enhance jobs that will get resumes — cuts Gemini load vs all 40
         explain_targets = [
@@ -430,7 +449,8 @@ async def generate_resumes_from_snapshot(
             f"  Enhancing explanations for {len(explain_targets)} "
             f"resume-eligible jobs (score>={settings.resume_generation_threshold})..."
         )
-        for match, role_track, resume_used in explain_targets:
+
+        async def _explain(match: JobMatch, resume_used: str) -> None:
             resume_for_llm, _, _, _ = _resolve_for_job(resume_used, match)
             try:
                 match.match_explanation = await llm.enhance_match_explanation(
@@ -438,103 +458,139 @@ async def generate_resumes_from_snapshot(
                 )
             except Exception as e:
                 logger.warning("llm_explain_skip", error=str(e)[:120])
-        print("  Explanations done.\n")
 
-    master_dir = resumes_dir / "master"
-    master_dir.mkdir(parents=True, exist_ok=True)
-    for p in profiles:
-        if p.tex_path.exists():
-            shutil.copy(p.tex_path, master_dir / f"{p.id}_resume.tex")
+        await asyncio.gather(*[
+            _explain(match, resume_used)
+            for match, _role_track, resume_used in explain_targets
+        ])
+        print("  Explanations done.\n")
 
     resume_paths: dict[str, tuple[str, str, str]] = {}
     basename_tracker = new_company_basename_tracker()
     cover_letter_tracker = new_company_cover_letter_tracker()
-    strong = 0
-    generated = 0
-    rows_for_excel: list[tuple[JobMatch, str, str]] = []
+    file_lock = asyncio.Lock()
 
-    for match, role_track, resume_used in top:
+    async def _one_job(match, role_track, resume_used, provider: str | None):
         m = match
-        repo.upsert_job(
-            m.job,
-            match_score=m.match_score,
-            match_category=m.match_category.value,
-            match_reason=m.match_explanation,
-            matching_skills=", ".join(m.matching_skills),
-            missing_requirements=", ".join(m.missing_requirements),
-            application_status=ApplicationStatus.MATCHED.value,
-        )
-        if m.match_score >= 80:
-            strong += 1
-
-        pdf_path = tex_path = cover_path_str = ""
-        if m.match_score >= settings.resume_generation_threshold:
-            master, tex_master, used, resolved = _resolve_for_job(resume_used, m)
-
-            tailored = await llm.tailor_resume(master, m)
-            profile_dir_name = (
-                resolved.output_folder_name if resolved else format_role_label(used)
-            )
-            company_dir = (
-                resumes_dir / profile_dir_name / company_folder_name(m.job.company)
-            )
-            company_dir.mkdir(parents=True, exist_ok=True)
-            # Filename uses profile label (Android / Backend / Flutter), not Hybrid
-            file_base = resume_file_basename(
-                used,
-                m.job.title,
-                basenames_for_company(
-                    basename_tracker, m.job.company, profile_folder=profile_dir_name
-                ),
-            )
-            latex.master_path = Path(tex_master)
-            if not latex.master_path.exists():
-                fallback_tex = (
-                    resolved.tex_path if resolved and resolved.tex_path.exists()
-                    else PROJECT_ROOT / "data/resume/master_android.tex"
-                )
-                logger.warning(
-                    "profile_tex_missing",
-                    wanted=str(tex_master),
-                    fallback=str(fallback_tex),
-                    profile=used,
-                )
-                latex.master_path = fallback_tex
-
-            tex_path_obj, pdf_path_obj = latex.generate(
-                tailored, m.job.company, m.job.title, company_dir,
-                contact=master, match=m,
-                role_category=used,
-                file_basename=file_base,
-            )
-            tex_path = str(tex_path_obj)
-            pdf_path = str(pdf_path_obj) if pdf_path_obj else ""
-
-            cover = await llm.generate_cover_letter(master, m)
-            cl_name = cover_letter_filename(
-                used,
-                m.job.title,
-                cover_letters_for_company(
-                    cover_letter_tracker, m.job.company, profile_folder=profile_dir_name
-                ),
-            )
-            cover_path = company_dir / cl_name
-            cover_path.write_text(cover, encoding="utf-8")
-            cover_path_str = str(cover_path)
-            generated += 1
-
+        async with file_lock:
             repo.upsert_job(
                 m.job,
-                resume_path=pdf_path,
-                resume_tex_path=tex_path,
-                cover_letter_path=cover_path_str,
-                application_status=ApplicationStatus.RESUME_GENERATED.value,
+                match_score=m.match_score,
+                match_category=m.match_category.value,
+                match_reason=m.match_explanation,
+                matching_skills=", ".join(m.matching_skills),
+                missing_requirements=", ".join(m.missing_requirements),
+                application_status=ApplicationStatus.MATCHED.value,
             )
-            resume_used = used
 
-        resume_paths[m.job.job_id] = (pdf_path, tex_path, cover_path_str)
+        pdf_path = tex_path = cover_path_str = ""
+        generated_one = False
+        if m.match_score >= settings.resume_generation_threshold:
+            master, tex_master, used, resolved = _resolve_for_job(resume_used, m)
+            token = llm.pin(provider) if provider else None
+            if provider:
+                print(f"  [{provider}] {m.job.company} — {m.job.title}")
+            try:
+                # Resume, then cover letter, both on this job's provider.
+                tailored = await llm.tailor_resume(master, m)
+                cover = await llm.generate_cover_letter(master, m)
+            finally:
+                if token is not None:
+                    llm.unpin(token)
+            async with file_lock:
+                profile_dir_name = (
+                    resolved.output_folder_name if resolved else format_role_label(used)
+                )
+                company_dir = (
+                    resumes_dir / profile_dir_name / company_folder_name(m.job.company)
+                )
+                company_dir.mkdir(parents=True, exist_ok=True)
+                file_base = resume_file_basename(
+                    used,
+                    m.job.title,
+                    basenames_for_company(
+                        basename_tracker, m.job.company, profile_folder=profile_dir_name
+                    ),
+                )
+                latex.master_path = Path(tex_master)
+                if not latex.master_path.exists():
+                    fallback_tex = (
+                        resolved.tex_path if resolved and resolved.tex_path.exists()
+                        else PROJECT_ROOT / "data/resume/master_android.tex"
+                    )
+                    logger.warning(
+                        "profile_tex_missing",
+                        wanted=str(tex_master),
+                        fallback=str(fallback_tex),
+                        profile=used,
+                    )
+                    latex.master_path = fallback_tex
+
+                tex_path_obj, pdf_path_obj = latex.generate(
+                    tailored, m.job.company, m.job.title, company_dir,
+                    contact=master, match=m,
+                    role_category=used,
+                    file_basename=file_base,
+                )
+                tex_path = str(tex_path_obj)
+                pdf_path = str(pdf_path_obj) if pdf_path_obj else ""
+
+                cl_name = cover_letter_filename(
+                    used,
+                    m.job.title,
+                    cover_letters_for_company(
+                        cover_letter_tracker, m.job.company, profile_folder=profile_dir_name
+                    ),
+                )
+                cover_path = company_dir / cl_name
+                cover_path.write_text(cover, encoding="utf-8")
+                cover_path_str = str(cover_path)
+
+                repo.upsert_job(
+                    m.job,
+                    resume_path=pdf_path,
+                    resume_tex_path=tex_path,
+                    cover_letter_path=cover_path_str,
+                    application_status=ApplicationStatus.RESUME_GENERATED.value,
+                )
+            resume_used = used
+            generated_one = True
+
         track_for_excel = role_track.value if hasattr(role_track, "value") else str(role_track)
-        rows_for_excel.append((m, format_role_label(track_for_excel), resume_used))
+        row = (m, format_role_label(track_for_excel), resume_used)
+        return row, (pdf_path, tex_path, cover_path_str), m.match_score >= 80, generated_one
+
+    providers = llm.worker_providers() or [None]
+    job_queue: asyncio.Queue = asyncio.Queue()
+    for index, item in enumerate(top):
+        job_queue.put_nowait((index, *item))
+    processed_slots: list = [None] * len(top)
+
+    async def _worker(provider: str | None) -> None:
+        while True:
+            try:
+                index, match, role_track, resume_used = job_queue.get_nowait()
+            except asyncio.QueueEmpty:
+                return
+            try:
+                processed_slots[index] = await _one_job(
+                    match, role_track, resume_used, provider
+                )
+            finally:
+                job_queue.task_done()
+
+    await asyncio.gather(*[_worker(provider) for provider in providers])
+    processed = processed_slots
+    rows_for_excel: list[tuple[JobMatch, str, str]] = []
+    strong = 0
+    generated = 0
+    for row, paths, is_strong, did_generate in processed:
+        rows_for_excel.append(row)
+        resume_paths[row[0].job.job_id] = paths
+        if is_strong:
+            strong += 1
+        if did_generate:
+            generated += 1
 
     exporter = ExcelExporter()
     exporter.export_dual_track(rows_for_excel, excel, resume_paths, outreach_map={})

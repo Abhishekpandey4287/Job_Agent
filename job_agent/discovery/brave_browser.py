@@ -1,11 +1,16 @@
 """Brave browser job discovery adapter — read-only, no applications."""
 
+import asyncio
 from typing import Dict, List, Tuple
 
 from job_agent.config import get_settings
 from job_agent.discovery.base import JobSourceAdapter
-from job_agent.discovery.browser.brave_session import BraveSession
-from job_agent.discovery.browser.portals import PORTAL_EXTRACTORS
+from job_agent.discovery.browser.brave_session import (
+    BraveSession,
+    bind_page,
+    resolve_parallel_tabs,
+    unbind_page,
+)
 from job_agent.logging_config import get_logger
 from job_agent.schemas import RawJob
 
@@ -62,7 +67,9 @@ class BraveBrowserAdapter(JobSourceAdapter):
         search_matrix: List[tuple[str, str]] | None = None,
         max_per_combo: int = 50,
     ) -> Tuple[List[RawJob], List[str], Dict[str, int], Dict[str, str]]:
-        """Single browser session; skips portals after CAPTCHA or repeated empty pages.
+        """One browser session and one tab per site running at the same time.
+
+        Skips a portal after CAPTCHA or repeated empty pages.
 
         Returns (jobs, errors, portal_counts, blocked_reasons).
         """
@@ -74,69 +81,92 @@ class BraveBrowserAdapter(JobSourceAdapter):
         errors: List[str] = []
         blocked_portals: Dict[str, str] = {}
         portal_counts: Dict[str, int] = {}
+        from job_agent.discovery.catalog import browser_extractors
+
+        extractors = [e for e in browser_extractors() if e.name in self.portals]
+        tab_count = resolve_parallel_tabs(
+            int(getattr(get_settings(), "browser_parallel_tabs", 0) or 0),
+            len(extractors),
+        )
 
         try:
             async with BraveSession() as session:
-                for extractor in PORTAL_EXTRACTORS:
-                    if extractor.name not in self.portals:
-                        continue
-                    if extractor.name in blocked_portals:
-                        logger.info("portal_skipped_blocked", portal=extractor.name)
-                        continue
+                if tab_count:
+                    if tab_count >= len(extractors):
+                        print(f"  Browser tabs: {tab_count} (one tab per site, all at once)")
+                    else:
+                        print(
+                            f"  Browser tabs: {tab_count} at a time "
+                            f"across {len(extractors)} sites"
+                        )
+                tabs = [await session.new_tab() for _ in range(tab_count)]
+                tab_queue: asyncio.Queue = asyncio.Queue()
+                for tab in tabs:
+                    tab_queue.put_nowait(tab)
 
+                async def _search_portal(extractor):
+                    page = await tab_queue.get()
+                    token = None
                     portal_jobs: List[RawJob] = []
+                    portal_errors: List[str] = []
+                    blocked_reason = ""
                     queries_run = 0
-                    consecutive_empty = 0
-                    for query, location in matrix:
-                        try:
-                            jobs = await extractor.search(
-                                session, query, location, max_per_combo
-                            )
-                            queries_run += 1
+                    try:
+                        token = bind_page(page)
+                        consecutive_empty = 0
+                        for query, location in matrix:
+                            try:
+                                jobs = await extractor.search(
+                                    session, query, location, max_per_combo
+                                )
+                                queries_run += 1
 
-                            if not jobs:
-                                consecutive_empty += 1
-                                blocker = await session.detect_blocker(wait_for_human=False)
-                                if blocker:
-                                    blocked_portals[extractor.name] = blocker
-                                    logger.warning(
-                                        "portal_blocked_skipping",
-                                        portal=extractor.name,
-                                        reason=blocker,
-                                    )
-                                    break
-                                if consecutive_empty >= self.MAX_CONSECUTIVE_EMPTY:
-                                    logger.warning(
-                                        "portal_empty_abort",
-                                        portal=extractor.name,
-                                        empty_streak=consecutive_empty,
-                                        hint="selector drift, login wall, or no results",
-                                    )
-                                    if extractor.name not in blocked_portals:
-                                        blocked_portals[extractor.name] = (
+                                if not jobs:
+                                    consecutive_empty += 1
+                                    blocker = await session.detect_blocker(wait_for_human=False)
+                                    if blocker:
+                                        blocked_reason = blocker
+                                        logger.warning(
+                                            "portal_blocked_skipping",
+                                            portal=extractor.name,
+                                            reason=blocker,
+                                        )
+                                        break
+                                    if consecutive_empty >= self.MAX_CONSECUTIVE_EMPTY:
+                                        logger.warning(
+                                            "portal_empty_abort",
+                                            portal=extractor.name,
+                                            empty_streak=consecutive_empty,
+                                            hint="selector drift, login wall, or no results",
+                                        )
+                                        blocked_reason = (
                                             f"0 jobs after {consecutive_empty} queries "
                                             "(selector/login/empty)"
                                         )
-                                    break
-                            else:
-                                consecutive_empty = 0
+                                        break
+                                else:
+                                    consecutive_empty = 0
 
-                            portal_jobs.extend(jobs)
-                            logger.info(
-                                "brave_portal_complete",
-                                portal=extractor.name,
-                                query=query,
-                                location=location,
-                                count=len(jobs),
-                            )
-                        except Exception as e:
-                            msg = f"{extractor.name}/{query}/{location}: {e}"
-                            errors.append(msg)
-                            logger.error("brave_portal_failed", portal=extractor.name, error=str(e))
+                                portal_jobs.extend(jobs)
+                                logger.info(
+                                    "brave_portal_complete",
+                                    portal=extractor.name,
+                                    query=query,
+                                    location=location,
+                                    count=len(jobs),
+                                )
+                            except Exception as e:
+                                msg = f"{extractor.name}/{query}/{location}: {e}"
+                                portal_errors.append(msg)
+                                logger.error(
+                                    "brave_portal_failed", portal=extractor.name, error=str(e)
+                                )
+                    finally:
+                        if token is not None:
+                            unbind_page(token)
+                        tab_queue.put_nowait(page)
 
-                    portal_counts[extractor.name] = len(portal_jobs)
-                    all_jobs.extend(portal_jobs)
-                    status = "BLOCKED" if extractor.name in blocked_portals else "SUCCESS"
+                    status = "BLOCKED" if blocked_reason else "SUCCESS"
                     if status == "SUCCESS" and len(portal_jobs) == 0:
                         status = "EMPTY"
                     logger.info(
@@ -146,6 +176,24 @@ class BraveBrowserAdapter(JobSourceAdapter):
                         queries_run=queries_run,
                         status=status,
                     )
+                    print(f"  [{extractor.name}] {len(portal_jobs)} jobs")
+                    return extractor.name, portal_jobs, portal_errors, blocked_reason
+
+                results = await asyncio.gather(
+                    *[_search_portal(extractor) for extractor in extractors],
+                    return_exceptions=True,
+                )
+                for result in results:
+                    if isinstance(result, Exception):
+                        errors.append(f"brave_portal: {result}")
+                        logger.error("brave_portal_failed", error=str(result)[:160])
+                        continue
+                    name, portal_jobs, portal_errors, blocked_reason = result
+                    portal_counts[name] = len(portal_jobs)
+                    all_jobs.extend(portal_jobs)
+                    errors.extend(portal_errors)
+                    if blocked_reason:
+                        blocked_portals[name] = blocked_reason
         except Exception as e:
             errors.append(f"brave_session: {e}")
             logger.error("brave_session_failed", error=str(e))

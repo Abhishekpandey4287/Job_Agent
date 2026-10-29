@@ -4,11 +4,18 @@ Folder naming (priority prefix optional but recommended):
   profiles/1-Android/   → priority 1 (Excel rank prefers these when scores tie)
   profiles/2-Backend/   → priority 2
   profiles/flutter/     → priority 999 (unnumbered loads last)
+
+Search toggles live in .env:
+  PROFILE_BASED_SEARCH=false   skips every profile
+  PROFILE_ANDROID=false        skips that track
+  PROFILE_BACKEND=true         keeps that track
+A missing PROFILE_<ID> line stays on. Only an explicit false turns a profile off.
 """
 
 from __future__ import annotations
 
 import json
+import os
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -26,6 +33,66 @@ DEFAULT_PROFILES_DIR = PROJECT_ROOT / "data" / "resume" / "profiles"
 
 # "1-Android", "2_Backend", "3 Backend"
 _PRIORITY_FOLDER_RE = re.compile(r"^(\d+)[-_\s]+(.+)$")
+_FALSE_VALUES = {"0", "false", "no", "off"}
+
+
+def _as_bool(raw: str, default: bool = True) -> bool:
+    text = (raw or "").strip().lower()
+    if not text:
+        return default
+    return text not in _FALSE_VALUES
+
+
+def _flag_key(name: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "-", (name or "").strip().lower()).strip("-")
+
+
+def _env_file_values(path: Path) -> Dict[str, str]:
+    if not path.exists():
+        return {}
+    values: Dict[str, str] = {}
+    for line in path.read_text(encoding="utf-8").splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#") or "=" not in stripped:
+            continue
+        key, _, val = stripped.partition("=")
+        values[key.strip()] = val.strip().strip('"').strip("'")
+    return values
+
+
+def profile_search_flags(env_path: Path | None = None) -> tuple[bool, Dict[str, bool]]:
+    """Return (master switch, {profile key: enabled}) from env and .env.
+
+    Process environment wins over the .env file. PROFILE_BASED_SEARCH is the
+    master switch. PROFILE_ANDROID / PROFILE_BACKEND (and any PROFILE_<ID>)
+    are per-profile switches. Keys are normalized the same way as folder ids.
+    """
+    file_vals = _env_file_values(env_path or (PROJECT_ROOT / ".env"))
+    merged = dict(file_vals)
+    for key, val in os.environ.items():
+        if key == "PROFILE_BASED_SEARCH" or key.startswith("PROFILE_"):
+            merged[key] = val
+
+    master = _as_bool(merged.get("PROFILE_BASED_SEARCH", ""), default=True)
+    flags: Dict[str, bool] = {}
+    for key, val in merged.items():
+        if key == "PROFILE_BASED_SEARCH" or not key.startswith("PROFILE_"):
+            continue
+        normalized = _flag_key(key[len("PROFILE_") :])
+        if normalized:
+            flags[normalized] = _as_bool(val)
+    return master, flags
+
+
+def _profile_allowed(names: set[str], master: bool, flags: Dict[str, bool]) -> bool:
+    """A profile stays on unless the master switch or its own flag is false."""
+    if not master:
+        return False
+    normalized = {_flag_key(name) for name in names if name}
+    for key, enabled in flags.items():
+        if key in normalized:
+            return enabled
+    return True
 
 
 def parse_profile_folder_name(folder_name: str) -> Tuple[int, str, str]:
@@ -160,17 +227,30 @@ def _ensure_profile_json(child: Path, settings) -> Path | None:
 def load_profiles(
     profiles_dir: Path | None = None,
     active: Optional[List[str]] = None,
+    *,
+    respect_search_flags: bool = True,
 ) -> List[ResumeProfile]:
     """Discover every profile folder under data/resume/profiles/.
 
     A folder is active if it has master_resume.json, OR master.tex (JSON is
     auto-generated from the .tex when missing). No code changes needed to add
     flutter/, devops/, etc.
+
+    PROFILE_BASED_SEARCH=false skips every profile. PROFILE_<ID>=false skips
+    that track (PROFILE_ANDROID, PROFILE_BACKEND). A missing line stays on.
+
+    Pass respect_search_flags=False for resume generation so disabled search
+    tracks still contribute their master.tex / master_resume.json templates.
     """
     settings = get_settings()
     root = profiles_dir or Path(getattr(settings, "resume_profiles_dir", "") or DEFAULT_PROFILES_DIR)
     if not root.is_absolute():
         root = PROJECT_ROOT / root
+
+    master_on, profile_flags = profile_search_flags()
+    if respect_search_flags and not master_on and active is None:
+        logger.info("profile_based_search_disabled")
+        return []
 
     active_set = {a.strip().lower() for a in (active or []) if a.strip()}
     if not active_set:
@@ -179,6 +259,7 @@ def load_profiles(
             active_set = {a.strip().lower() for a in raw.split(",") if a.strip()}
 
     found: List[ResumeProfile] = []
+    skipped_by_env = False
     if root.exists():
         for child in sorted(root.iterdir()):
             if not child.is_dir() or child.name.startswith("."):
@@ -187,15 +268,22 @@ def load_profiles(
             folder_priority, folder_id, folder_label = parse_profile_folder_name(child.name)
 
             # active_profiles may list "android", "1-android", or "1-Android"
-            if active_set:
-                names = {
-                    child.name.lower(),
-                    folder_id,
-                    f"{folder_priority}-{folder_id}",
-                    f"{folder_priority}-{folder_label}".lower(),
-                }
-                if not (names & active_set):
-                    continue
+            names = {
+                child.name.lower(),
+                folder_id,
+                f"{folder_priority}-{folder_id}",
+                f"{folder_priority}-{folder_label}".lower(),
+            }
+            if active_set and not (names & active_set):
+                continue
+            if (
+                respect_search_flags
+                and active is None
+                and not _profile_allowed(names, master_on, profile_flags)
+            ):
+                skipped_by_env = True
+                logger.info("profile_search_disabled", profile=child.name, id=folder_id)
+                continue
 
             json_path = _ensure_profile_json(child, settings)
             if not json_path:
@@ -242,9 +330,11 @@ def load_profiles(
                 )
             )
 
-    if not found:
+    if not found and not skipped_by_env:
         logger.warning("profiles_dir_empty_using_legacy", path=str(root))
         found = _legacy_fallback_profiles()
+    elif not found and skipped_by_env:
+        logger.info("no_profiles_enabled_for_search")
 
     # Lower number = higher priority (1 before 2); stable by id
     found.sort(key=lambda p: (p.priority, p.id))

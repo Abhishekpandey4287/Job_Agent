@@ -2,23 +2,13 @@
 
 from typing import Dict, List, Tuple
 
-from job_agent.discovery.ashby import AshbyAdapter
-from job_agent.discovery.greenhouse import GreenhouseAdapter
-from job_agent.discovery.lever import LeverAdapter
+from job_agent.discovery.catalog import build_ats_adapters
 from job_agent.discovery.serpapi_jobs import SerpAPIJobsAdapter
-from job_agent.discovery.smartrecruiters import SmartRecruitersAdapter
 from job_agent.discovery.web_search_jobs import WebSearchJobsAdapter
 from job_agent.logging_config import get_logger
 from job_agent.schemas import RawJob
 
 logger = get_logger(__name__)
-
-ATS_ADAPTERS = [
-    GreenhouseAdapter(),
-    LeverAdapter(),
-    AshbyAdapter(),
-    SmartRecruitersAdapter(),
-]
 
 
 async def discover_internet_wide(
@@ -33,7 +23,7 @@ async def discover_internet_wide(
     errors: List[str] = []
     source_counts: Dict[str, int] = {}
 
-    for adapter in ATS_ADAPTERS:
+    for adapter in build_ats_adapters():
         if not await adapter.health_check():
             source_counts[adapter.name] = 0
             continue
